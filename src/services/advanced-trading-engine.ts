@@ -397,10 +397,10 @@ export class AdvancedTradingEngine {
           console.log(`⚠️ Posição ${trade.symbol} não encontrada na Binance - FECHANDO trade no banco`);
           
           // ✅ CRITICAL FIX: Se posição foi fechada na Binance, marcar como closed no banco
-          const updateSuccess = await this.updateTradeStatusInDatabase(tradeId, {
+          const updateSuccess =           await this.updateTradeStatusInDatabase(tradeId, {
             status: 'closed',
-            closed_at: new Date().toISOString(),
-            closed_reason: 'position_closed_externally'
+            closed_at: new Date().toISOString()
+            // Nota: closed_reason não existe na tabela real_trades
           });
           
           if (updateSuccess) {
@@ -813,8 +813,8 @@ export class AdvancedTradingEngine {
             current_price: currentPrice,
             pnl: realizedPnL,
             pnl_percent: realizedPnLPercent,
-            binance_order_id: closeOrder.orderId?.toString() || trade.binanceOrderId,
-            closed_reason: reason
+            binance_order_id: closeOrder.orderId?.toString() || trade.binanceOrderId
+            // Nota: closed_reason não existe na tabela real_trades, motivo pode ser inferido de 'algorithm' ou notas
           });
           
           if (updateSuccess) {
@@ -850,8 +850,8 @@ export class AdvancedTradingEngine {
           // ✅ ATUALIZAR STATUS MESMO SEM POSIÇÃO NA BINANCE
           const updateSuccess = await this.updateTradeStatusInDatabase(tradeId, {
             status: 'closed',
-            closed_at: new Date().toISOString(),
-            closed_reason: reason
+            closed_at: new Date().toISOString()
+            // Nota: closed_reason não existe na tabela real_trades, motivo pode ser inferido de 'algorithm' ou notas
           });
           
           if (updateSuccess) {
@@ -876,8 +876,8 @@ export class AdvancedTradingEngine {
           try {
             await this.updateTradeStatusInDatabase(tradeId, {
               status: 'closed',
-              closed_at: new Date().toISOString(),
-              closed_reason: `${reason}_error_${error.message?.substring(0, 50) || 'unknown'}`
+              closed_at: new Date().toISOString()
+              // Nota: closed_reason não existe na tabela real_trades, erro registrado no log
             });
             console.log(`💾 Trade ${tradeId} marcado como CLOSED no banco após erro`);
           } catch (dbError) {
@@ -964,8 +964,8 @@ export class AdvancedTradingEngine {
       // Marcar como fechado
       const updateSuccess = await this.updateTradeStatusInDatabase(tradeId, {
         status: 'closed',
-        closed_at: new Date().toISOString(),
-        closed_reason: reason
+        closed_at: new Date().toISOString()
+        // Nota: closed_reason não existe na tabela real_trades
       });
       
       if (updateSuccess) {
@@ -3656,8 +3656,8 @@ export class AdvancedTradingEngine {
                 status: 'closed',
                 closed_at: new Date().toISOString(),
                 current_price: currentPrice,
-                pnl: pnl,
-                closed_reason: 'duplicate_trade'
+                pnl: pnl
+                // Nota: closed_reason não existe na tabela real_trades
               })
               .eq('trade_id', duplicate.trade_id);
             
