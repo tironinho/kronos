@@ -524,6 +524,18 @@ export class TradeAnalysisCapture {
   }
 
   /**
+   * Obtém dados atuais da análise (antes de finalizar)
+   */
+  public getCurrentAnalysisData(): Partial<TradeAnalysisParameters> | null {
+    if (!this.currentAnalysis || Object.keys(this.currentAnalysis).length === 0) {
+      return null;
+    }
+    
+    // Clonar para não modificar o original
+    return JSON.parse(JSON.stringify(this.currentAnalysis));
+  }
+
+  /**
    * Obtém estatísticas de análise
    */
   public async getAnalysisStats(): Promise<any> {

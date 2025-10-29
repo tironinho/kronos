@@ -30,6 +30,9 @@ import EquityMonitoringService from './equity-monitoring-service';
 import { DynamicPositionSizingService } from './dynamic-position-sizing.service';
 import { tradePriceMonitor } from './trade-price-monitor.service';
 import { databasePopulationService } from './database-population-service';
+import { complianceMonitor } from './compliance-monitor';
+import { automatedBacktestingService } from './automated-backtesting-service';
+import { indicatorWeightOptimizer } from './indicator-weight-optimizer';
 
 interface TradeDecision {
   action: 'BUY' | 'SELL' | 'HOLD';
@@ -1598,8 +1601,8 @@ export class AdvancedTradingEngine {
       riskAcceptable: canOpenByConfig && canOpenByLeverage
     });
     
-    // ✅ NOVO: Finalizar captura de parâmetros
-    await tradeAnalysisCapture.finishAnalysis();
+    // ✅ NÃO finalizar análise aqui - deixar salvar apenas quando trade for executada
+    // await tradeAnalysisCapture.finishAnalysis(); // REMOVIDO: será chamado após execução
     
     return {
       action: predictiveV2.signal === 'STRONG_BUY' || predictiveV2.signal === 'BUY' ? 'BUY' : 
@@ -1625,6 +1628,51 @@ export class AdvancedTradingEngine {
     console.log(`   Stop Loss: $${decision.stopLoss.toFixed(2)}`);
     console.log(`   Take Profit: $${decision.takeProfit.toFixed(2)}`);
     console.log(`   ⚠️⚠️⚠️ EXECUTANDO COM DINHEIRO REAL ⚠️⚠️⚠️`);
+    
+    // ✅ AJUSTE 1: VALIDAÇÃO RÍGIDA DE LIMITES ANTES DE EXECUTAR
+    const tradeLimits = this.configService.getTradeLimits();
+    const riskConfig = this.configService.getRiskManagement();
+    
+    try {
+      const { supabase } = await import('./supabase-db');
+      if (supabase) {
+        // Buscar TODAS as trades abertas do banco (fonte de verdade)
+        const { data: allOpenTrades, error: countError } = await supabase
+          .from('real_trades')
+          .select('trade_id, symbol, side, status')
+          .eq('status', 'open');
+        
+        if (countError) {
+          console.warn(`⚠️ Erro ao contar trades abertas:`, countError);
+        } else {
+          const totalOpenTrades = allOpenTrades?.length || 0;
+          const maxActiveTrades = tradeLimits.maxActiveTrades || riskConfig.maxTotalPositions;
+          
+          console.log(`\n🔒 VALIDAÇÃO RÍGIDA DE LIMITES:`);
+          console.log(`   Trades abertas no banco: ${totalOpenTrades}`);
+          console.log(`   Limite máximo configurado: ${maxActiveTrades}`);
+          
+          // ✅ VALIDAÇÃO CRÍTICA: Bloquear se já atingiu o limite
+          if (maxActiveTrades && totalOpenTrades >= maxActiveTrades) {
+            console.log(`\n🚫 TRADE BLOQUEADA: Limite máximo de ${maxActiveTrades} trades já atingido!`);
+            console.log(`   Trades atuais: ${totalOpenTrades}`);
+            console.log(`   Só é permitido se for trade excepcional para substituir`);
+            
+            // Verificar se é trade excepcional (alta confiança)
+            const isExceptional = this.isExceptionalTrade(symbol, decision.confidence, decision.confidence * 10);
+            if (!isExceptional) {
+              console.log(`   ❌ Trade não é excepcional - BLOQUEANDO execução`);
+              return;
+            } else {
+              console.log(`   ⭐ Trade EXCEPCIONAL - Permitindo substituição...`);
+              // Continuar para substituir trade menos lucrativa
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`⚠️ Erro na validação rígida de limites (continuando):`, error);
+    }
     
     // ✅ CRÍTICO: Verificar se já existe trade aberta no BANCO DE DADOS (não só no Map)
     try {
@@ -2132,8 +2180,14 @@ export class AdvancedTradingEngine {
         
         console.log(`💾 Trade ${tradeId} salvo no banco de dados`);
         
-        // ✅ NOVO: Salvar parâmetros de análise
-        await this.saveTradeAnalysisParameters(tradeId, tradeAnalysisCapture.getAnalysisStats());
+        // ✅ NOVO: Salvar parâmetros de análise ANTES de finalizar
+        // Obter dados atuais antes que finishAnalysis() limpe
+        const currentAnalysisData = tradeAnalysisCapture.getCurrentAnalysisData();
+        if (currentAnalysisData) {
+          await this.saveTradeAnalysisParameters(tradeId, currentAnalysisData);
+        }
+        // Finalizar análise após salvar (limpa dados)
+        await tradeAnalysisCapture.finishAnalysis();
         
         return tradeId;
       }
@@ -2795,6 +2849,40 @@ export class AdvancedTradingEngine {
       console.log('📊 Serviço de preenchimento automático do banco iniciado');
     } catch (populateError) {
       console.warn('⚠️ Erro ao iniciar serviço de preenchimento (continuando):', populateError);
+    }
+
+    // ✅ MELHORIA 1: Iniciar monitoramento de conformidade
+    try {
+      complianceMonitor.startMonitoring();
+      console.log('🔒 Sistema de monitoramento de conformidade iniciado');
+    } catch (complianceError) {
+      console.warn('⚠️ Erro ao iniciar monitoramento de conformidade (continuando):', complianceError);
+    }
+
+    // ✅ MELHORIA 2: Iniciar backtesting automático
+    try {
+      automatedBacktestingService.start();
+      console.log('🧪 Serviço de backtesting automático iniciado');
+    } catch (backtestError) {
+      console.warn('⚠️ Erro ao iniciar backtesting automático (continuando):', backtestError);
+    }
+
+    // ✅ MELHORIA 3: Otimizar pesos de indicadores (periodicamente)
+    try {
+      // Otimizar pesos uma vez ao iniciar (depois será periódico)
+      setTimeout(async () => {
+        const optimized = await indicatorWeightOptimizer.optimizeWeights();
+        if (optimized) {
+          // Aplicar pesos otimizados ao PredictiveAnalyzerV2
+          const { predictiveAnalyzerV2 } = await import('./analyzers/predictive-analyzer-v2');
+          if (predictiveAnalyzerV2 && typeof predictiveAnalyzerV2.updateWeights === 'function') {
+            predictiveAnalyzerV2.updateWeights(optimized);
+            console.log('✅ Pesos de indicadores otimizados e aplicados');
+          }
+        }
+      }, 60000); // Aguardar 1 minuto após iniciar para ter dados
+    } catch (optimizerError) {
+      console.warn('⚠️ Erro ao otimizar pesos (continuando):', optimizerError);
     }
     
     console.log(`✅ Trading Futures iniciado com sucesso! Saldo: $${futuresBalance.toFixed(2)}`);

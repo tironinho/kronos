@@ -34,6 +34,7 @@ export interface PredictiveAnalysisV2 {
 
 export class PredictiveAnalyzerV2 {
   // Pesos baseados em confiabilidade histórica
+  // ✅ AJUSTE: Pesos podem ser otimizados dinamicamente via IndicatorWeightOptimizer
   private weights = {
     technical: 0.40,      // Maior peso: análises técnicas são mais confiáveis
     sentiment: 0.08,       // ✅ REDUZIDO: sentiment pode ser volátil
@@ -42,6 +43,20 @@ export class PredictiveAnalyzerV2 {
     macro: 0.05,           // ✅ REDUZIDO: macro afeta longo prazo
     smartmoney: 0.05       // Muito baixo: dados limitados
   };
+
+  /**
+   * ✅ NOVO: Atualiza pesos usando otimizador
+   */
+  public updateWeights(optimizedWeights: any): void {
+    if (optimizedWeights.technical) this.weights.technical = optimizedWeights.technical;
+    if (optimizedWeights.sentiment) this.weights.sentiment = optimizedWeights.sentiment;
+    if (optimizedWeights.onchain) this.weights.onchain = optimizedWeights.onchain;
+    if (optimizedWeights.derivatives) this.weights.derivatives = optimizedWeights.derivatives;
+    if (optimizedWeights.macro) this.weights.macro = optimizedWeights.macro;
+    if (optimizedWeights.smartmoney) this.weights.smartmoney = optimizedWeights.smartmoney;
+    
+    console.log('✅ Pesos do PredictiveAnalyzerV2 atualizados com valores otimizados');
+  }
   
   /**
    * Consolida todas as análises com PESOS

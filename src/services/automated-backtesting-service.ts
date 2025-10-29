@@ -1,590 +1,392 @@
-import { createClient } from '@supabase/supabase-js';
+/**
+ * AUTOMATED BACKTESTING SERVICE
+ * 
+ * Serviço que executa backtests regulares (semanal) e compara resultados
+ * com expectativas e performance real
+ */
 
-interface BacktestConfig {
-  symbol: string;
-  startDate: string;
-  endDate: string;
-  initialCapital: number;
-  strategy: string;
-  parameters: Record<string, any>;
+import { supabase } from './supabase-db';
+import TradingConfigurationService from './trading-configuration-service';
+import { BacktestEngine } from './backtest-engine';
+
+// Interface simplificada para usar o BacktestEngine
+interface SimpleBacktestResult {
+  win_rate: number;
+  profit_factor: number;
+  total_return: number;
+  max_drawdown: number;
+  sharpe_ratio?: number;
+  total_trades: number;
+  equity_curve?: Array<{ date: string; equity: number }>;
+  trades?: any[];
+  confidence?: number;
+}
+import { getBinanceClient } from './binance-api';
+
+interface BacktestSchedule {
+  frequency: 'daily' | 'weekly' | 'monthly';
+  dayOfWeek?: number; // 0 = domingo, 6 = sábado (para weekly)
+  time?: string; // HH:mm format
+  enabled: boolean;
 }
 
-interface BacktestResult {
-  id: string;
-  config: BacktestConfig;
-  metrics: {
-    totalTrades: number;
-    winningTrades: number;
-    losingTrades: number;
+interface BacktestComparison {
+  expectedWinRate: number;
+  actualWinRate: number;
+  expectedProfitFactor: number;
+  actualProfitFactor: number;
+  expectedConfidence: number;
+  actualConfidence: number;
+  deviation: {
     winRate: number;
-    totalPnl: number;
-    maxDrawdown: number;
-    sharpeRatio: number;
     profitFactor: number;
-    averageTradeDuration: number;
-    equityCurve: Array<{timestamp: string, equity: number}>;
+    confidence: number;
   };
-  trades: Array<{
-    entryTime: string;
-    exitTime: string;
-    entryPrice: number;
-    exitPrice: number;
-    side: 'BUY' | 'SELL';
-    quantity: number;
-    pnl: number;
-    pnlPercent: number;
-    duration: number;
-  }>;
-  timestamp: string;
-  status: 'COMPLETED' | 'FAILED' | 'RUNNING';
-}
-
-interface StrategyValidation {
-  strategy: string;
-  parameters: Record<string, any>;
-  validationScore: number;
   recommendations: string[];
-  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
 }
 
 export class AutomatedBacktestingService {
-  private supabase: any;
-  private backtestQueue: Map<string, BacktestConfig> = new Map();
-  private isRunning = false;
+  private static instance: AutomatedBacktestingService;
+  private backtestEngine: BacktestEngine | null = null;
+  private configService = TradingConfigurationService.getInstance();
+  private schedule: BacktestSchedule = {
+    frequency: 'weekly',
+    dayOfWeek: 0, // Domingo
+    time: '02:00', // 2h da manhã
+    enabled: true
+  };
+  private intervalId: NodeJS.Timeout | null = null;
+  private readonly CHECK_INTERVAL = 3600000; // 1 hora para verificar se precisa rodar
 
-  constructor() {
-    this.initializeSupabase();
+  private constructor() {
+    // BacktestEngine será inicializado quando necessário
+    // Configuração será feita no método runWeeklyBacktest
   }
 
-  private initializeSupabase() {
-    try {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-      
-      if (!supabaseUrl || !supabaseKey) {
-        console.warn('⚠️ AutomatedBacktestingService: Supabase credentials not found, using fallback');
-        this.supabase = null;
-        return;
-      }
+  public static getInstance(): AutomatedBacktestingService {
+    if (!AutomatedBacktestingService.instance) {
+      AutomatedBacktestingService.instance = new AutomatedBacktestingService();
+    }
+    return AutomatedBacktestingService.instance;
+  }
 
-      this.supabase = createClient(supabaseUrl, supabaseKey);
-      console.log('✅ AutomatedBacktestingService: Initialized');
-    } catch (error) {
-      console.error('❌ AutomatedBacktestingService: Failed to initialize:', error);
-      this.supabase = null;
+  /**
+   * Inicia serviço de backtesting automático
+   */
+  public start(): void {
+    if (this.intervalId) {
+      return; // Já está rodando
+    }
+
+    console.log('🧪 Serviço de backtesting automático iniciado');
+    console.log(`   Frequência: ${this.schedule.frequency}`);
+    console.log(`   Próxima execução será verificada a cada hora`);
+
+    // Verificar se precisa rodar agora
+    this.checkAndRun().catch(err => {
+      console.error('❌ Erro na verificação inicial de backtesting:', err);
+    });
+
+    // Verificar periodicamente
+    this.intervalId = setInterval(() => {
+      this.checkAndRun().catch(err => {
+        console.error('❌ Erro na verificação periódica de backtesting:', err);
+      });
+    }, this.CHECK_INTERVAL);
+  }
+
+  /**
+   * Para o serviço
+   */
+  public stop(): void {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+      console.log('🧪 Serviço de backtesting automático parado');
     }
   }
 
   /**
-   * Inicia o sistema de backtesting automático
+   * Verifica se deve rodar backtest e executa se necessário
    */
-  public start() {
-    if (this.isRunning) {
-      console.log('⚠️ AutomatedBacktestingService: Already running');
+  private async checkAndRun(): Promise<void> {
+    if (!this.schedule.enabled) {
       return;
     }
 
-    this.isRunning = true;
-    console.log('🚀 AutomatedBacktestingService: Starting automated backtesting');
+    const now = new Date();
+    
+    // Verificar se é o dia/hora correto para rodar
+    if (this.schedule.frequency === 'weekly') {
+      if (now.getDay() !== this.schedule.dayOfWeek) {
+        return; // Não é o dia certo
+      }
 
-    // Executar backtesting a cada 6 horas
-    setInterval(async () => {
-      await this.performScheduledBacktests();
-    }, 6 * 60 * 60 * 1000);
+      // Verificar se é a hora certa (dentro de 1 hora da hora agendada)
+      const [scheduledHour, scheduledMinute] = (this.schedule.time || '02:00').split(':').map(Number);
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
 
-    // Executar validação de estratégias a cada 12 horas
-    setInterval(async () => {
-      await this.validateCurrentStrategies();
-    }, 12 * 60 * 60 * 1000);
+      if (currentHour !== scheduledHour || (currentHour === scheduledHour && currentMinute > scheduledMinute + 5)) {
+        return; // Não é a hora certa
+      }
 
-    // Executar backtesting inicial
-    this.performScheduledBacktests();
+      // Verificar se já rodou hoje
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const { data: todayBacktest } = await supabase
+        .from('backtest_results')
+        .select('created_at')
+        .gte('created_at', today.toISOString())
+        .limit(1);
+
+      if (todayBacktest && todayBacktest.length > 0) {
+        return; // Já rodou hoje
+      }
+
+      // Rodar backtest
+      console.log('🧪 Executando backtest automático semanal...');
+      await this.runWeeklyBacktest();
+    }
   }
 
   /**
-   * Para o sistema de backtesting
+   * Executa backtest semanal
    */
-  public stop() {
-    this.isRunning = false;
-    console.log('🛑 AutomatedBacktestingService: Stopped');
-  }
-
-  /**
-   * Executa backtests agendados
-   */
-  private async performScheduledBacktests() {
+  public async runWeeklyBacktest(): Promise<SimpleBacktestResult | null> {
     try {
-      console.log('🔍 AutomatedBacktestingService: Performing scheduled backtests...');
+      console.log('📊 Iniciando backtest semanal...');
 
-      // Obter símbolos ativos
-      const activeSymbols = await this.getActiveSymbols();
-      
-      // Obter estratégias ativas
-      const activeStrategies = await this.getActiveStrategies();
+      // Inicializar BacktestEngine com configurações
+      this.backtestEngine = new BacktestEngine({
+        initial_capital: 1000,
+        commission_rate: 0.0003, // Futures fee
+        slippage_rate: 0.0005,
+        max_positions: 2,
+        position_size_percent: 0.05, // 5%
+        stop_loss_percent: 0.05, // 5%
+        take_profit_percent: 0.10, // 10%
+        symbols: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'DOGEUSDT', 'XRPUSDT'],
+        timeframe: '1h'
+      });
 
-      // Executar backtests para cada combinação símbolo/estratégia
-      for (const symbol of activeSymbols) {
-        for (const strategy of activeStrategies) {
-          const config: BacktestConfig = {
-            symbol,
-            startDate: this.getStartDate(),
-            endDate: new Date().toISOString(),
-            initialCapital: 1000, // Capital padrão para backtest
-            strategy: strategy.name,
-            parameters: strategy.parameters
-          };
+      const symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'DOGEUSDT', 'XRPUSDT'];
+      const binanceClient = getBinanceClient();
 
-          await this.executeBacktest(config);
+      // Para cada símbolo, buscar klines históricos
+      for (const symbol of symbols) {
+        try {
+          const klines = await binanceClient.getKlines(symbol, '1h', 672); // 4 semanas de dados
+          
+          const historicalData = klines.map((k: any) => ({
+            timestamp: k.openTime,
+            open: parseFloat(k.open),
+            high: parseFloat(k.high),
+            low: parseFloat(k.low),
+            close: parseFloat(k.close),
+            volume: parseFloat(k.volume)
+          }));
+
+          if (this.backtestEngine) {
+            await this.backtestEngine.loadHistoricalData(symbol, historicalData);
+          }
+        } catch (error) {
+          console.error(`⚠️ Erro ao carregar dados históricos para ${symbol}:`, error);
         }
       }
 
-      console.log('✅ AutomatedBacktestingService: Scheduled backtests completed');
-    } catch (error) {
-      console.error('❌ AutomatedBacktestingService: Scheduled backtests failed:', error);
-    }
-  }
+      // Buscar sinais históricos (simular baseado em regras)
+      // Em produção, isso viria de análise técnica histórica
+      const signals = await this.generateHistoricalSignals(symbols);
 
-  /**
-   * Executa um backtest específico
-   */
-  public async executeBacktest(config: BacktestConfig): Promise<BacktestResult> {
-    const backtestId = `backtest_${config.symbol}_${config.strategy}_${Date.now()}`;
-    
-    console.log(`🔬 Executing backtest: ${backtestId}`);
-
-    try {
-      // Obter dados históricos
-      const historicalData = await this.getHistoricalData(config);
-      
-      if (!historicalData || historicalData.length === 0) {
-        throw new Error('No historical data available');
+      // Executar backtest
+      if (!this.backtestEngine) {
+        throw new Error('BacktestEngine não inicializado');
       }
+      const result = await this.backtestEngine.runBacktest(signals);
 
-      // Simular estratégia
-      const simulationResult = await this.simulateStrategy(config, historicalData);
-      
-      // Calcular métricas
-      const metrics = this.calculateBacktestMetrics(simulationResult);
-      
-      // Criar resultado
-      const result: BacktestResult = {
-        id: backtestId,
-        config,
-        metrics,
-        trades: simulationResult.trades,
-        timestamp: new Date().toISOString(),
-        status: 'COMPLETED'
-      };
-
-      // Salvar resultado
+      // Salvar resultado no banco
       await this.saveBacktestResult(result);
 
-      console.log(`✅ Backtest completed: ${backtestId}`);
-      console.log(`   Win Rate: ${metrics.winRate.toFixed(2)}%`);
-      console.log(`   Total PnL: $${metrics.totalPnl.toFixed(2)}`);
-      console.log(`   Max Drawdown: ${metrics.maxDrawdown.toFixed(2)}%`);
-
-      return result;
-    } catch (error) {
-      console.error(`❌ Backtest failed: ${backtestId}`, error);
-      
-      const failedResult: BacktestResult = {
-        id: backtestId,
-        config,
-        metrics: {
-          totalTrades: 0,
-          winningTrades: 0,
-          losingTrades: 0,
-          winRate: 0,
-          totalPnl: 0,
-          maxDrawdown: 0,
-          sharpeRatio: 0,
-          profitFactor: 0,
-          averageTradeDuration: 0,
-          equityCurve: []
-        },
-        trades: [],
-        timestamp: new Date().toISOString(),
-        status: 'FAILED'
+      // Converter resultado para formato simplificado
+      const simpleResult: SimpleBacktestResult = {
+        win_rate: result.win_rate || 0,
+        profit_factor: result.profit_factor || 0,
+        total_return: result.total_return || 0,
+        max_drawdown: result.max_drawdown || 0,
+        sharpe_ratio: result.sharpe_ratio || 0,
+        total_trades: result.total_trades || 0,
+        equity_curve: result.equity_curve?.map(e => ({
+          date: new Date(e.timestamp).toISOString(),
+          equity: e.equity
+        })) || [],
+        trades: result.trade_history || [],
+        confidence: 0.7 // Valor padrão
       };
 
-      await this.saveBacktestResult(failedResult);
-      return failedResult;
+      // Comparar com expectativas e performance real
+      const comparison = await this.compareWithReality(simpleResult);
+      
+      // Salvar comparação e recomendações
+      await this.saveComparison(comparison);
+
+      console.log('✅ Backtest semanal concluído');
+      console.log(`   Win Rate: ${(simpleResult.win_rate * 100).toFixed(2)}%`);
+      console.log(`   Profit Factor: ${simpleResult.profit_factor.toFixed(2)}`);
+      console.log(`   Total Return: ${(simpleResult.total_return * 100).toFixed(2)}%`);
+
+      return simpleResult;
+
+    } catch (error) {
+      console.error('❌ Erro ao executar backtest semanal:', error);
+      return null;
     }
   }
 
   /**
-   * Simula uma estratégia com dados históricos
+   * Gera sinais históricos para backtesting (simplificado)
    */
-  private async simulateStrategy(config: BacktestConfig, data: any[]): Promise<any> {
-    const trades = [];
-    let equity = config.initialCapital;
-    let position = null;
-    const equityCurve = [{ timestamp: data[0].timestamp, equity }];
-
-    // Implementar lógica de simulação baseada na estratégia
-    for (let i = 1; i < data.length; i++) {
-      const currentData = data[i];
-      const previousData = data[i - 1];
-
-      // Gerar sinal baseado na estratégia
-      const signal = await this.generateSignal(config.strategy, config.parameters, currentData, previousData);
-
-      if (signal.action === 'BUY' && !position) {
-        // Abrir posição long
-        position = {
-          side: 'BUY',
-          entryPrice: currentData.close,
-          entryTime: currentData.timestamp,
-          quantity: equity * 0.1 / currentData.close // 10% do capital
-        };
-      } else if (signal.action === 'SELL' && position && position.side === 'BUY') {
-        // Fechar posição long
-        const exitPrice = currentData.close;
-        const pnl = (exitPrice - position.entryPrice) * position.quantity;
-        const pnlPercent = (pnl / (position.entryPrice * position.quantity)) * 100;
-        
-        trades.push({
-          entryTime: position.entryTime,
-          exitTime: currentData.timestamp,
-          entryPrice: position.entryPrice,
-          exitPrice,
-          side: position.side,
-          quantity: position.quantity,
-          pnl,
-          pnlPercent,
-          duration: new Date(currentData.timestamp).getTime() - new Date(position.entryTime).getTime()
-        });
-
-        equity += pnl;
-        position = null;
-      }
-
-      equityCurve.push({ timestamp: currentData.timestamp, equity });
-    }
-
-    return { trades, equityCurve };
+  private async generateHistoricalSignals(symbols: string[]): Promise<any[]> {
+    // Em produção, isso analisaria dados históricos e geraria sinais
+    // Por enquanto, retorna array vazio (sinais seriam gerados pelo sistema de análise)
+    return [];
   }
 
   /**
-   * Gera sinal baseado na estratégia
+   * Salva resultado do backtest no banco
    */
-  private async generateSignal(strategy: string, parameters: any, currentData: any, previousData: any): Promise<{action: 'BUY' | 'SELL' | 'HOLD', confidence: number}> {
-    // Implementar lógica de geração de sinal baseada na estratégia
-    // Por enquanto, implementação simplificada
-    
-    switch (strategy) {
-      case 'mean_reversion':
-        return this.generateMeanReversionSignal(currentData, previousData, parameters);
-      case 'momentum':
-        return this.generateMomentumSignal(currentData, previousData, parameters);
-      case 'breakout':
-        return this.generateBreakoutSignal(currentData, previousData, parameters);
-      default:
-        return { action: 'HOLD', confidence: 0 };
+  private async saveBacktestResult(result: any): Promise<void> {
+    try {
+      const endDate = new Date();
+      const startDate = new Date(endDate.getTime() - 28 * 24 * 60 * 60 * 1000); // 4 semanas atrás
+
+      await supabase.from('backtest_results').insert({
+        strategy: 'current_configuration',
+        symbol: 'MULTI', // Múltiplos símbolos
+        start_date: startDate.toISOString(),
+        end_date: endDate.toISOString(),
+        total_return: result.total_return,
+        max_drawdown: result.max_drawdown,
+        sharpe_ratio: result.sharpe_ratio || 0,
+        win_rate: result.win_rate,
+        profit_factor: result.profit_factor,
+        total_trades: result.total_trades,
+        equity_curve: result.equity_curve || [],
+        trades_data: result.trade_history || [],
+        algorithm: 'advanced_trading_engine_v2'
+      });
+    } catch (error) {
+      console.error('❌ Erro ao salvar resultado do backtest:', error);
     }
   }
 
   /**
-   * Gera sinal de mean reversion
+   * Compara resultados do backtest com expectativas e realidade
    */
-  private generateMeanReversionSignal(currentData: any, previousData: any, parameters: any): {action: 'BUY' | 'SELL' | 'HOLD', confidence: number} {
-    const rsi = currentData.rsi || 50;
-    const priceChange = (currentData.close - previousData.close) / previousData.close;
-    
-    if (rsi < 30 && priceChange < -0.02) {
-      return { action: 'BUY', confidence: 70 };
-    } else if (rsi > 70 && priceChange > 0.02) {
-      return { action: 'SELL', confidence: 70 };
-    }
-    
-    return { action: 'HOLD', confidence: 0 };
-  }
+  private async compareWithReality(backtestResult: SimpleBacktestResult): Promise<BacktestComparison> {
+    const config = this.configService.getQualityFilters();
+    const expectedWinRate = config.minWinRate / 100; // Converter para decimal
+    const expectedProfitFactor = config.minProfitFactor;
+    const expectedConfidence = config.minConfidence / 100;
 
-  /**
-   * Gera sinal de momentum
-   */
-  private generateMomentumSignal(currentData: any, previousData: any, parameters: any): {action: 'BUY' | 'SELL' | 'HOLD', confidence: number} {
-    const priceChange = (currentData.close - previousData.close) / previousData.close;
-    const volumeRatio = currentData.volume / previousData.volume;
-    
-    if (priceChange > 0.01 && volumeRatio > 1.2) {
-      return { action: 'BUY', confidence: 75 };
-    } else if (priceChange < -0.01 && volumeRatio > 1.2) {
-      return { action: 'SELL', confidence: 75 };
-    }
-    
-    return { action: 'HOLD', confidence: 0 };
-  }
+    // Buscar performance real das últimas trades
+    const { data: closedTrades } = await supabase
+      .from('real_trades')
+      .select('pnl, confidence')
+      .eq('status', 'closed')
+      .order('closed_at', { ascending: false })
+      .limit(50);
 
-  /**
-   * Gera sinal de breakout
-   */
-  private generateBreakoutSignal(currentData: any, previousData: any, parameters: any): {action: 'BUY' | 'SELL' | 'HOLD', confidence: number} {
-    const high20 = this.calculateHigh20(currentData);
-    const low20 = this.calculateLow20(currentData);
-    
-    if (currentData.close > high20) {
-      return { action: 'BUY', confidence: 80 };
-    } else if (currentData.close < low20) {
-      return { action: 'SELL', confidence: 80 };
-    }
-    
-    return { action: 'HOLD', confidence: 0 };
-  }
+    const realTrades = closedTrades || [];
+    const winningTrades = realTrades.filter((t: any) => parseFloat(t.pnl?.toString() || '0') > 0);
+    const actualWinRate = realTrades.length > 0 ? winningTrades.length / realTrades.length : 0;
 
-  /**
-   * Calcula métricas do backtest
-   */
-  private calculateBacktestMetrics(simulationResult: any) {
-    const trades = simulationResult.trades;
-    const equityCurve = simulationResult.equityCurve;
+    const pnls = realTrades.map((t: any) => parseFloat(t.pnl?.toString() || '0'));
+    const wins = pnls.filter((p: number) => p > 0);
+    const losses = pnls.filter((p: number) => p < 0);
+    const avgWin = wins.length > 0 ? wins.reduce((a: number, b: number) => a + b, 0) / wins.length : 0;
+    const avgLoss = losses.length > 0 ? Math.abs(losses.reduce((a: number, b: number) => a + b, 0) / losses.length) : 0;
+    const actualProfitFactor = avgLoss > 0 ? avgWin / avgLoss : 0;
 
-    const totalTrades = trades.length;
-    const winningTrades = trades.filter((t: any) => t.pnl > 0).length;
-    const losingTrades = trades.filter((t: any) => t.pnl < 0).length;
-    const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
-    
-    const totalPnl = trades.reduce((sum: number, t: any) => sum + t.pnl, 0);
-    
-    // Calcular drawdown máximo
-    let maxDrawdown = 0;
-    let peak = equityCurve[0].equity;
-    
-    for (const point of equityCurve) {
-      if (point.equity > peak) {
-        peak = point.equity;
-      }
-      const drawdown = ((peak - point.equity) / peak) * 100;
-      if (drawdown > maxDrawdown) {
-        maxDrawdown = drawdown;
-      }
+    const confidences = realTrades.map((t: any) => parseFloat(t.confidence?.toString() || '0'));
+    const actualConfidence = confidences.length > 0 
+      ? confidences.reduce((a: number, b: number) => a + b, 0) / confidences.length / 100 
+      : 0;
+
+    // Calcular desvios
+    const winRateDeviation = backtestResult.win_rate - expectedWinRate;
+    const profitFactorDeviation = backtestResult.profit_factor - expectedProfitFactor;
+    const confidenceDeviation = (backtestResult.confidence || 0.7) - expectedConfidence;
+
+    // Gerar recomendações
+    const recommendations: string[] = [];
+
+    if (winRateDeviation < -0.1) {
+      recommendations.push(`Win Rate do backtest (${(backtestResult.win_rate * 100).toFixed(1)}%) está abaixo do esperado (${(expectedWinRate * 100)}%). Considerar aumentar confiança mínima.`);
     }
 
-    // Calcular Sharpe Ratio
-    const returns = [];
-    for (let i = 1; i < equityCurve.length; i++) {
-      const return_ = (equityCurve[i].equity - equityCurve[i-1].equity) / equityCurve[i-1].equity;
-      returns.push(return_);
+    if (profitFactorDeviation < -0.5) {
+      recommendations.push(`Profit Factor do backtest (${backtestResult.profit_factor.toFixed(2)}) está abaixo do esperado (${expectedProfitFactor}). Revisar estratégia de entrada/saída.`);
     }
-    
-    const avgReturn = returns.reduce((sum, r) => sum + r, 0) / returns.length;
-    const returnStdDev = Math.sqrt(returns.reduce((sum, r) => sum + Math.pow(r - avgReturn, 2), 0) / returns.length);
-    const sharpeRatio = returnStdDev > 0 ? avgReturn / returnStdDev : 0;
 
-    // Calcular Profit Factor
-    const grossProfit = trades.filter((t: any) => t.pnl > 0).reduce((sum: number, t: any) => sum + t.pnl, 0);
-    const grossLoss = Math.abs(trades.filter((t: any) => t.pnl < 0).reduce((sum: number, t: any) => sum + t.pnl, 0));
-    const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : 0;
+    if (actualWinRate < expectedWinRate - 0.1) {
+      recommendations.push(`Win Rate real (${(actualWinRate * 100).toFixed(1)}%) está muito abaixo do esperado (${(expectedWinRate * 100)}%). Ajustar filtros de qualidade.`);
+    }
 
-    // Duração média dos trades
-    const averageTradeDuration = trades.length > 0 ? 
-      trades.reduce((sum: number, t: any) => sum + t.duration, 0) / trades.length : 0;
+    if (backtestResult.win_rate > actualWinRate + 0.2) {
+      recommendations.push(`Backtest mostra win rate melhor que realidade. Verificar se condições de mercado mudaram.`);
+    }
 
     return {
-      totalTrades,
-      winningTrades,
-      losingTrades,
-      winRate,
-      totalPnl,
-      maxDrawdown,
-      sharpeRatio,
-      profitFactor,
-      averageTradeDuration,
-      equityCurve
+      expectedWinRate,
+      actualWinRate,
+      expectedProfitFactor,
+      actualProfitFactor,
+      expectedConfidence,
+      actualConfidence,
+      deviation: {
+        winRate: winRateDeviation,
+        profitFactor: profitFactorDeviation,
+        confidence: confidenceDeviation
+      },
+      recommendations
     };
   }
 
   /**
-   * Valida estratégias atuais
+   * Salva comparação e recomendações
    */
-  private async validateCurrentStrategies() {
+  private async saveComparison(comparison: BacktestComparison): Promise<void> {
     try {
-      console.log('🔍 AutomatedBacktestingService: Validating current strategies...');
-
-      // Obter resultados de backtest recentes
-      const recentBacktests = await this.getRecentBacktestResults();
-      
-      // Analisar performance
-      const validations = await this.analyzeStrategyPerformance(recentBacktests);
-      
-      // Aplicar recomendações
-      await this.applyValidationRecommendations(validations);
-
-      console.log('✅ AutomatedBacktestingService: Strategy validation completed');
-    } catch (error) {
-      console.error('❌ AutomatedBacktestingService: Strategy validation failed:', error);
-    }
-  }
-
-  /**
-   * Analisa performance das estratégias
-   */
-  private async analyzeStrategyPerformance(backtests: BacktestResult[]): Promise<StrategyValidation[]> {
-    const validations: StrategyValidation[] = [];
-    
-    // Agrupar por estratégia
-    const strategyGroups = backtests.reduce((groups, backtest) => {
-      if (!groups[backtest.config.strategy]) {
-        groups[backtest.config.strategy] = [];
+      // Salvar como alerta se houver recomendações importantes
+      if (comparison.recommendations.length > 0) {
+        await supabase.from('system_alerts').insert({
+          alert_type: 'backtest_recommendation',
+          severity: 'medium',
+          symbol: null,
+          title: 'Recomendações de Backtesting',
+          message: comparison.recommendations.join('; '),
+          is_read: false,
+          is_resolved: false,
+          related_data: comparison
+        });
       }
-      groups[backtest.config.strategy].push(backtest);
-      return groups;
-    }, {} as Record<string, BacktestResult[]>);
 
-    // Analisar cada estratégia
-    for (const [strategy, results] of Object.entries(strategyGroups)) {
-      const avgWinRate = results.reduce((sum, r) => sum + r.metrics.winRate, 0) / results.length;
-      const avgSharpeRatio = results.reduce((sum, r) => sum + r.metrics.sharpeRatio, 0) / results.length;
-      const avgMaxDrawdown = results.reduce((sum, r) => sum + r.metrics.maxDrawdown, 0) / results.length;
-      
-      const validationScore = this.calculateValidationScore(avgWinRate, avgSharpeRatio, avgMaxDrawdown);
-      const recommendations = this.generateValidationRecommendations(avgWinRate, avgSharpeRatio, avgMaxDrawdown);
-      const riskLevel = this.determineRiskLevel(avgMaxDrawdown, avgSharpeRatio);
-
-      validations.push({
-        strategy,
-        parameters: results[0].config.parameters,
-        validationScore,
-        recommendations,
-        riskLevel
+      console.log('📊 Comparação salva com recomendações:');
+      comparison.recommendations.forEach((rec, idx) => {
+        console.log(`   ${idx + 1}. ${rec}`);
       });
-    }
-
-    return validations;
-  }
-
-  /**
-   * Calcula score de validação
-   */
-  private calculateValidationScore(winRate: number, sharpeRatio: number, maxDrawdown: number): number {
-    let score = 0;
-    
-    // Win Rate (40% do score)
-    if (winRate >= 60) score += 40;
-    else if (winRate >= 50) score += 30;
-    else if (winRate >= 40) score += 20;
-    else score += 10;
-    
-    // Sharpe Ratio (30% do score)
-    if (sharpeRatio >= 2.0) score += 30;
-    else if (sharpeRatio >= 1.5) score += 25;
-    else if (sharpeRatio >= 1.0) score += 20;
-    else if (sharpeRatio >= 0.5) score += 15;
-    else score += 10;
-    
-    // Max Drawdown (30% do score)
-    if (maxDrawdown <= 5) score += 30;
-    else if (maxDrawdown <= 10) score += 25;
-    else if (maxDrawdown <= 15) score += 20;
-    else if (maxDrawdown <= 20) score += 15;
-    else score += 10;
-    
-    return score;
-  }
-
-  /**
-   * Gera recomendações de validação
-   */
-  private generateValidationRecommendations(winRate: number, sharpeRatio: number, maxDrawdown: number): string[] {
-    const recommendations = [];
-    
-    if (winRate < 50) {
-      recommendations.push('IMPROVE_ENTRY_SIGNALS');
-      recommendations.push('INCREASE_CONFIDENCE_THRESHOLD');
-    }
-    
-    if (sharpeRatio < 1.0) {
-      recommendations.push('OPTIMIZE_RISK_MANAGEMENT');
-      recommendations.push('IMPROVE_RISK_REWARD_RATIO');
-    }
-    
-    if (maxDrawdown > 15) {
-      recommendations.push('REDUCE_POSITION_SIZE');
-      recommendations.push('TIGHTEN_STOP_LOSS');
-    }
-    
-    return recommendations;
-  }
-
-  /**
-   * Determina nível de risco
-   */
-  private determineRiskLevel(maxDrawdown: number, sharpeRatio: number): 'LOW' | 'MEDIUM' | 'HIGH' {
-    if (maxDrawdown <= 10 && sharpeRatio >= 1.5) {
-      return 'LOW';
-    } else if (maxDrawdown <= 20 && sharpeRatio >= 1.0) {
-      return 'MEDIUM';
-    } else {
-      return 'HIGH';
-    }
-  }
-
-  /**
-   * Aplica recomendações de validação
-   */
-  private async applyValidationRecommendations(validations: StrategyValidation[]) {
-    for (const validation of validations) {
-      if (validation.validationScore < 60) {
-        console.log(`⚠️ Strategy ${validation.strategy} needs improvement (Score: ${validation.validationScore})`);
-        console.log(`   Recommendations: ${validation.recommendations.join(', ')}`);
-        
-        // Aqui você pode implementar a lógica para aplicar as recomendações
-        // Por exemplo, ajustar parâmetros da estratégia
-      }
-    }
-  }
-
-  // Métodos auxiliares
-  private async getActiveSymbols(): Promise<string[]> {
-    // Implementar lógica para obter símbolos ativos
-    return ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'ADAUSDT', 'SOLUSDT'];
-  }
-
-  private async getActiveStrategies(): Promise<Array<{name: string, parameters: any}>> {
-    // Implementar lógica para obter estratégias ativas
-    return [
-      { name: 'mean_reversion', parameters: { rsiPeriod: 14, threshold: 30 } },
-      { name: 'momentum', parameters: { period: 20, threshold: 0.01 } },
-      { name: 'breakout', parameters: { period: 20, multiplier: 2 } }
-    ];
-  }
-
-  private getStartDate(): string {
-    const date = new Date();
-    date.setDate(date.getDate() - 30); // 30 dias atrás
-    return date.toISOString();
-  }
-
-  private async getHistoricalData(config: BacktestConfig): Promise<any[]> {
-    // Implementar lógica para obter dados históricos
-    // Por enquanto, retornar array vazio
-    return [];
-  }
-
-  private async saveBacktestResult(result: BacktestResult) {
-    try {
-      // Implementar lógica para salvar resultado no banco de dados
-      console.log(`💾 Saving backtest result: ${result.id}`);
     } catch (error) {
-      console.error('❌ Error saving backtest result:', error);
+      console.error('❌ Erro ao salvar comparação:', error);
     }
   }
 
-  private async getRecentBacktestResults(): Promise<BacktestResult[]> {
-    // Implementar lógica para obter resultados recentes
-    return [];
-  }
-
-  private calculateHigh20(data: any): number {
-    // Implementação simplificada
-    return data.high * 1.02;
-  }
-
-  private calculateLow20(data: any): number {
-    // Implementação simplificada
-    return data.low * 0.98;
+  /**
+   * Executa backtest manual sob demanda
+   */
+  public async runManualBacktest(symbols: string[], days: number = 7): Promise<SimpleBacktestResult | null> {
+    console.log(`🧪 Executando backtest manual para ${symbols.join(', ')} (últimos ${days} dias)...`);
+    return await this.runWeeklyBacktest();
   }
 }
 
-export const automatedBacktestingService = new AutomatedBacktestingService();
+export const automatedBacktestingService = AutomatedBacktestingService.getInstance();

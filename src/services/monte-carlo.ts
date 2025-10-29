@@ -130,6 +130,52 @@ export class MonteCarloEngine {
       this.results.set(symbol, result);
       this.updatePerformanceMetrics(Date.now() - startTime);
 
+      // ✅ AJUSTE 5: Salvar simulação no banco de dados
+      try {
+        const { saveMonteCarloSimulation } = await import('./supabase-db');
+        const executionTime = Date.now() - startTime;
+        
+        // Calcular preços de confiança (5% e 95%)
+        const sortedSims = simulations.sort((a, b) => a - b);
+        const confidenceLower = sortedSims[Math.floor(sortedSims.length * 0.05)];
+        const confidenceUpper = sortedSims[Math.floor(sortedSims.length * 0.95)];
+        
+        // Calcular price_change e percent
+        const priceChange = forecastPrice - currentPrice;
+        const priceChangePercent = (priceChange / currentPrice) * 100;
+        
+        // Calcular success_probability (probability_up se esperamos alta, caso contrário probability_down)
+        const successProbability = expectedReturn > 0 ? probabilityUp : probabilityDown;
+        
+        // Calcular estimated_profit e risk_reward
+        const estimatedProfit = expectedReturn * currentPrice; // Simplificado
+        const riskRewardRatio = Math.abs(estimatedProfit) > 0 ? expectedReturn / Math.abs(expectedReturn - 0) : 0;
+
+        await saveMonteCarloSimulation({
+          simulation_id: result.id,
+          symbol: symbol,
+          current_price: currentPrice,
+          price_change: priceChange,
+          price_change_percent: priceChangePercent,
+          initial_capital: 1000, // Default, pode ser ajustado
+          num_simulations: simulations.length,
+          expected_return: expectedReturn,
+          volatility: volatility,
+          sharpe_ratio: riskScore, // Usando risk score como proxy
+          max_drawdown: Math.max(...simulations.map(s => Math.abs(s - currentPrice) / currentPrice)),
+          confidence_lower: confidenceLower,
+          confidence_upper: confidenceUpper,
+          estimated_profit: estimatedProfit,
+          risk_reward_ratio: riskRewardRatio,
+          success_probability: successProbability,
+          execution_time_ms: executionTime,
+          timestamp: new Date().toISOString()
+        });
+      } catch (saveError) {
+        warn(`Failed to save Monte Carlo simulation to database: ${saveError}`);
+        // Não falhar a simulação se o salvamento falhar
+      }
+
       info(`Monte Carlo simulation completed for ${symbol}`, {
         forecastPrice: forecastPrice.toFixed(2),
         probabilityUp: (probabilityUp * 100).toFixed(1) + '%',
