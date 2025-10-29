@@ -1,0 +1,16 @@
+{
+  "maxPositionSize": 1000,
+  "maxDailyLoss": 50,
+  "stopLossPercentage": 20,
+  "takeProfitPercentage": 50,
+  "maxConcurrentPositions": 2,
+  "minConfidence": 50,
+  "sellProbability": 0.85,
+  "buyProbability": 0.15,
+  "riskRewardRatio": 2.5,
+  "maxDailyTrades": 400,
+  "minTimeBetweenTrades": 3600000,
+  "requireMultipleConfirmations": true,
+  "minConfirmations": 3,
+  "leverage": 5
+}

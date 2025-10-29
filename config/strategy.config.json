@@ -1,0 +1,22 @@
+{
+  "ofi": {
+    "windowsMs": [1000, 5000, 10000],
+    "zScoreThreshold": 2.0,
+    "cooldownMs": 60000
+  },
+  "microMomentum": {
+    "returnWindowsMs": [100, 500, 1000],
+    "minEdgeBps": 0.5,
+    "minVolumeUsd": 10000.0
+  },
+  "meanReversion": {
+    "deviationTicks": 10,
+    "targetSpreadFactor": 0.5,
+    "cooldownMs": 30000
+  },
+  "symbolSelection": {
+    "enabled": true,
+    "volatilityThreshold": 0.5,
+    "topNVolume": 10
+  }
+}

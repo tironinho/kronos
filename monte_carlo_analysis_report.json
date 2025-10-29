@@ -1,0 +1,142 @@
+{
+  "total_simulations": 84,
+  "total_profit": 1.8100000000000012,
+  "total_loss": 0,
+  "net_profit": 1.8100000000000012,
+  "win_rate": 100.0,
+  "profitable": 84,
+  "unprofitable": 0,
+  "symbols": {
+    "XRPUSDT": {
+      "count": 13,
+      "total_profit": 0.28,
+      "total_loss": 0,
+      "avg_success_prob": 0.5211384615384616,
+      "avg_risk_reward": 0.18926153846153843,
+      "profitable": 13,
+      "unprofitable": 0,
+      "max_profit": 0.04,
+      "max_loss": Infinity,
+      "win_rate": 100.0,
+      "net_profit": 0.28
+    },
+    "ADAUSDT": {
+      "count": 14,
+      "total_profit": 0.3,
+      "total_loss": 0,
+      "avg_success_prob": 0.5233285714285714,
+      "avg_risk_reward": 0.20310000000000003,
+      "profitable": 14,
+      "unprofitable": 0,
+      "max_profit": 0.05,
+      "max_loss": Infinity,
+      "win_rate": 100.0,
+      "net_profit": 0.3
+    },
+    "SOLUSDT": {
+      "count": 14,
+      "total_profit": 0.26,
+      "total_loss": 0,
+      "avg_success_prob": 0.5206071428571428,
+      "avg_risk_reward": 0.19636428571428574,
+      "profitable": 14,
+      "unprofitable": 0,
+      "max_profit": 0.04,
+      "max_loss": Infinity,
+      "win_rate": 100.0,
+      "net_profit": 0.26
+    },
+    "BNBUSDT": {
+      "count": 14,
+      "total_profit": 0.26,
+      "total_loss": 0,
+      "avg_success_prob": 0.5137714285714285,
+      "avg_risk_reward": 0.17106428571428572,
+      "profitable": 14,
+      "unprofitable": 0,
+      "max_profit": 0.04,
+      "max_loss": Infinity,
+      "win_rate": 100.0,
+      "net_profit": 0.26
+    },
+    "ETHUSDT": {
+      "count": 14,
+      "total_profit": 0.35,
+      "total_loss": 0,
+      "avg_success_prob": 0.5336857142857142,
+      "avg_risk_reward": 0.21758571428571433,
+      "profitable": 14,
+      "unprofitable": 0,
+      "max_profit": 0.05,
+      "max_loss": Infinity,
+      "win_rate": 100.0,
+      "net_profit": 0.35
+    },
+    "BTCUSDT": {
+      "count": 15,
+      "total_profit": 0.36,
+      "total_loss": 0,
+      "avg_success_prob": 0.5333333333333334,
+      "avg_risk_reward": 0.22749999999999998,
+      "profitable": 15,
+      "unprofitable": 0,
+      "max_profit": 0.05,
+      "max_loss": Infinity,
+      "win_rate": 100.0,
+      "net_profit": 0.36
+    }
+  },
+  "top_simulations": [
+    {
+      "symbol": "ADAUSDT",
+      "profit": 0.05,
+      "timestamp": "2025-10-27T00:41:46.152+00:00"
+    },
+    {
+      "symbol": "ETHUSDT",
+      "profit": 0.05,
+      "timestamp": "2025-10-27T00:40:10.828+00:00"
+    },
+    {
+      "symbol": "BTCUSDT",
+      "profit": 0.05,
+      "timestamp": "2025-10-27T00:37:07.57+00:00"
+    },
+    {
+      "symbol": "XRPUSDT",
+      "profit": 0.04,
+      "timestamp": "2025-10-27T00:41:48.013+00:00"
+    },
+    {
+      "symbol": "SOLUSDT",
+      "profit": 0.04,
+      "timestamp": "2025-10-27T00:41:44.292+00:00"
+    },
+    {
+      "symbol": "BTCUSDT",
+      "profit": 0.04,
+      "timestamp": "2025-10-27T00:41:38.689+00:00"
+    },
+    {
+      "symbol": "ETHUSDT",
+      "profit": 0.04,
+      "timestamp": "2025-10-27T00:39:09.568+00:00"
+    },
+    {
+      "symbol": "ETHUSDT",
+      "profit": 0.04,
+      "timestamp": "2025-10-27T00:38:09.59+00:00"
+    },
+    {
+      "symbol": "BTCUSDT",
+      "profit": 0.04,
+      "timestamp": "2025-10-27T00:38:07.615+00:00"
+    },
+    {
+      "symbol": "XRPUSDT",
+      "profit": 0.04,
+      "timestamp": "2025-10-27T00:37:18.564+00:00"
+    }
+  ],
+  "timestamp": "2025-10-26T21:52:36.693749"
+}

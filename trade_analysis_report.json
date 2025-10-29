@@ -1,0 +1,70 @@
+{
+  "timestamp": "2025-10-26T21:35:52.647386",
+  "total_trades": 1000,
+  "closed_trades": 826,
+  "open_trades": 174,
+  "by_symbol": {
+    "SOLUSDT": {
+      "total": 204,
+      "profit": 111,
+      "loss": 93,
+      "pnl_total": 0.006849868789392316,
+      "pnl_max": 0.0006153482145344838,
+      "pnl_min": -0.0005108233610262052
+    },
+    "BNBUSDT": {
+      "total": 212,
+      "profit": 119,
+      "loss": 93,
+      "pnl_total": 0.0010975870985324508,
+      "pnl_max": 0.0005671442922779531,
+      "pnl_min": -0.0006385450911188579
+    },
+    "ETHUSDT": {
+      "total": 206,
+      "profit": 124,
+      "loss": 82,
+      "pnl_total": 0.01295321528253511,
+      "pnl_max": 0.0006042201911741875,
+      "pnl_min": -0.0005730490052732975
+    },
+    "BTCUSDT": {
+      "total": 204,
+      "profit": 92,
+      "loss": 112,
+      "pnl_total": -0.0060347027284776995,
+      "pnl_max": 0.0005186527619775357,
+      "pnl_min": -0.0004988324916534369
+    }
+  },
+  "by_algorithm": {
+    "random_test": {
+      "total": 826,
+      "profit": 446,
+      "loss": 380,
+      "pnl_total": 0.01486596844198218
+    }
+  },
+  "by_side": {
+    "BUY": {
+      "total": 421,
+      "profit": 239,
+      "loss": 182,
+      "pnl_total": 0.01667780771942914
+    },
+    "SELL": {
+      "total": 405,
+      "profit": 207,
+      "loss": 198,
+      "pnl_total": -0.0018118392774469794
+    }
+  },
+  "avg_duration": 38.40677966101695,
+  "recommendations": {
+    "best_symbol": "ETHUSDT",
+    "best_algorithm": "random_test",
+    "best_side": "BUY",
+    "worst_symbol": "BTCUSDT",
+    "loss_rate": 46.00484261501211
+  }
+}
