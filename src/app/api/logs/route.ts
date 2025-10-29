@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSystemLogger, getComponentLogger, SystemComponent, SystemAction } from '@/services/logging';
+import { getSystemLogger, getComponentLogger, SystemComponent, SystemAction, LogLevel } from '@/services/logging';
 
 const logger = getSystemLogger();
 const componentLogger = getComponentLogger(SystemComponent.TradingEngine);
@@ -90,7 +90,18 @@ export async function POST(request: NextRequest) {
 
     // Escrever log usando o logger do sistema
     const systemLogger = getSystemLogger();
-    const logLevel = level as 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'CRITICAL';
+    
+    // Converter string level para LogLevel enum
+    const levelMap: Record<string, LogLevel> = {
+      'DEBUG': LogLevel.DEBUG,
+      'INFO': LogLevel.INFO,
+      'WARN': LogLevel.WARN,
+      'ERROR': LogLevel.ERROR,
+      'CRITICAL': LogLevel.CRITICAL
+    };
+    
+    const logLevel = levelMap[level] || LogLevel.INFO;
+    
     const componentMap: Record<string, SystemComponent> = {
       'API': SystemComponent.TradingEngine,
       'default': SystemComponent.TradingEngine
@@ -102,18 +113,9 @@ export async function POST(request: NextRequest) {
     
     const comp = componentMap[component || 'default'] || SystemComponent.TradingEngine;
     const action = actionMap[component || 'default'] || SystemAction.DataProcessing;
+    const success = level === 'DEBUG' || level === 'INFO';
     
-    switch (level) {
-      case 'DEBUG':
-      case 'INFO':
-        await systemLogger.addLog(logLevel, comp, action, message, data, true);
-        break;
-      case 'WARN':
-      case 'ERROR':
-      case 'CRITICAL':
-        await systemLogger.addLog(logLevel, comp, action, message, data, false);
-        break;
-    }
+    await systemLogger.addLog(logLevel, comp, action, message, data, success);
 
     return NextResponse.json({
       success: true,
