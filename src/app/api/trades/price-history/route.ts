@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
     const { data: history, error } = await query;
 
     if (error) {
-      logger.error(SystemAction.DataFetching, 'Erro ao buscar histórico de preços', error as Error);
+      await logger.error(SystemAction.ErrorHandling, 'Erro ao buscar histórico de preços', error as Error);
       return NextResponse.json(
         { error: 'Erro ao buscar histórico de preços', details: error.message },
         { status: 500 }
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    logger.error(SystemAction.SystemError, 'Erro no endpoint de histórico de preços', error as Error);
+    await logger.error(SystemAction.ErrorHandling, 'Erro no endpoint de histórico de preços', error as Error);
     return NextResponse.json(
       { error: 'Erro interno do servidor', details: (error as Error).message },
       { status: 500 }
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
     const { data: history, error } = await query;
 
     if (error) {
-      logger.error(SystemAction.DataFetching, 'Erro ao buscar histórico para estatísticas', error as Error);
+      await logger.error(SystemAction.ErrorHandling, 'Erro ao buscar histórico para estatísticas', error as Error);
       return NextResponse.json(
         { error: 'Erro ao buscar histórico', details: error.message },
         { status: 500 }
@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
       statistics: statistics,
     });
   } catch (error) {
-    logger.error(SystemAction.SystemError, 'Erro ao calcular estatísticas', error as Error);
+    await logger.error(SystemAction.ErrorHandling, 'Erro ao calcular estatísticas', error as Error);
     return NextResponse.json(
       { error: 'Erro interno do servidor', details: (error as Error).message },
       { status: 500 }

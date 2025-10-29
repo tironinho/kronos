@@ -217,7 +217,7 @@ export class TradePriceMonitorService {
         .order('opened_at', { ascending: false });
 
       if (error) {
-        getLogger().error(SystemAction.DataFetching, 'Erro ao buscar trades abertas', error as Error);
+        getLogger().error(SystemAction.ErrorHandling, 'Erro ao buscar trades abertas', error as Error);
         return;
       }
 
@@ -232,7 +232,7 @@ export class TradePriceMonitorService {
       await Promise.all(snapshotPromises);
 
     } catch (error) {
-      getLogger().error(SystemAction.SystemError, 'Erro no monitoramento de trades', error as Error);
+      getLogger().error(SystemAction.ErrorHandling, 'Erro no monitoramento de trades', error as Error);
     }
   }
 
@@ -468,13 +468,13 @@ export class TradePriceMonitorService {
         .limit(limit);
 
       if (error) {
-        getLogger().error(SystemAction.DataFetching, `Erro ao buscar histórico de ${tradeId}`, error as Error);
+        getLogger().error(SystemAction.ErrorHandling, `Erro ao buscar histórico de ${tradeId}`, error as Error);
         return [];
       }
 
       return data || [];
     } catch (error) {
-      getLogger().error(SystemAction.DataFetching, 'Erro ao buscar histórico de preços', error as Error);
+      getLogger().error(SystemAction.ErrorHandling, 'Erro ao buscar histórico de preços', error as Error);
       return [];
     }
   }

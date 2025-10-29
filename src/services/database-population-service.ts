@@ -174,7 +174,7 @@ export class DatabasePopulationService {
       );
     } catch (error) {
       getLogger().error(
-        SystemAction.SystemError,
+        SystemAction.ErrorHandling,
         'Erro no preenchimento de tabelas',
         error as Error
       );
