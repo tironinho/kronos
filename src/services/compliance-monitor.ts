@@ -102,12 +102,12 @@ export class ComplianceMonitor {
       checks.push(dailyLossCheck);
 
       // Filtrar violações e avisos
-      const violations = checks.filter(c => c.status === 'violation');
-      const warnings = checks.filter(c => c.status === 'warning');
+      const violations = checks.filter((c: ComplianceCheck) => c.status === 'violation');
+      const warnings = checks.filter((c: ComplianceCheck) => c.status === 'warning');
 
       // Disparar alertas se houver violações críticas
-      if (violations.some(v => v.severity === 'critical' || v.severity === 'high')) {
-        await this.createAlerts(violations.filter(v => v.severity === 'critical' || v.severity === 'high'));
+      if (violations.some((v: ComplianceCheck) => v.severity === 'critical' || v.severity === 'high')) {
+        await this.createAlerts(violations.filter((v: ComplianceCheck) => v.severity === 'critical' || v.severity === 'high'));
       }
 
       const report: ComplianceReport = {
@@ -278,7 +278,7 @@ export class ComplianceMonitor {
       };
     }
 
-    const equities = equityHistory.map(e => parseFloat(e.equity?.toString() || '0')).filter(e => e > 0);
+    const equities = equityHistory.map((e: any) => parseFloat(e.equity?.toString() || '0')).filter((e: number) => e > 0);
     const maxEquity = Math.max(...equities);
     const currentEquity = equities[equities.length - 1];
     const drawdownPercent = maxEquity > 0 ? ((maxEquity - currentEquity) / maxEquity) * 100 : 0;
@@ -325,8 +325,8 @@ export class ComplianceMonitor {
     }
 
     const totalLoss = todayTrades
-      .filter(t => parseFloat(t.pnl?.toString() || '0') < 0)
-      .reduce((sum, t) => sum + Math.abs(parseFloat(t.pnl?.toString() || '0')), 0);
+      .filter((t: any) => parseFloat(t.pnl?.toString() || '0') < 0)
+      .reduce((sum: number, t: any) => sum + Math.abs(parseFloat(t.pnl?.toString() || '0')), 0);
 
     // Obter equity inicial do dia
     const { data: initialEquity } = await supabase

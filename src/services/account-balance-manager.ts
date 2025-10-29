@@ -125,9 +125,35 @@ export class AccountBalanceManager {
 
   public async loadAccountBalance(): Promise<AccountBalance> {
     try {
+      // ✅ CORREÇÃO: Buscar Futures primeiro (sistema principal usa Futures)
+      let futuresBalance = 0;
+      try {
+        const futuresInfo = await binanceApiClient.getFuturesAccountInfo();
+        futuresBalance = parseFloat(futuresInfo.totalWalletBalance || futuresInfo.availableBalance || '0');
+      } catch (futuresError: any) {
+        warn(`Could not load Futures balance, trying Spot`, { error: futuresError.message });
+      }
+
+      // Buscar Spot como fallback
       const accountInfo = await binanceApiClient.getAccountInfo();
       
       if (!accountInfo || !accountInfo.balances) {
+        // Se Futures tem saldo, usar apenas Futures
+        if (futuresBalance > 0) {
+          this.currentBalance = {
+            total_balance_usdt: futuresBalance,
+            available_balance_usdt: futuresBalance,
+            locked_balance_usdt: 0,
+            balances: [],
+            last_updated: Date.now(),
+          };
+          info(`Account balance loaded (Futures only)`, {
+            totalBalance: futuresBalance.toFixed(2),
+            availableBalance: futuresBalance.toFixed(2),
+            source: 'FUTURES'
+          });
+          return this.currentBalance;
+        }
         throw new Error('Failed to get account info from Binance');
       }
 
@@ -150,26 +176,33 @@ export class AccountBalanceManager {
           };
         });
 
-      const totalBalanceUsdt = balances.reduce((sum: number, bal: any) => sum + bal.usdt_value, 0);
+      const spotBalanceUsdt = balances.reduce((sum: number, bal: any) => sum + bal.usdt_value, 0);
       const availableBalanceUsdt = balances.reduce((sum: number, bal: any) => sum + (bal.free * this.getAssetPrice(bal.asset)), 0);
-      const lockedBalanceUsdt = totalBalanceUsdt - availableBalanceUsdt;
+      const lockedBalanceUsdt = spotBalanceUsdt - availableBalanceUsdt;
+
+      // ✅ CORREÇÃO: Usar Futures se disponível, senão usar Spot
+      const totalBalanceUsdt = futuresBalance > 0 ? futuresBalance : spotBalanceUsdt;
+      const finalAvailableBalance = futuresBalance > 0 ? futuresBalance : availableBalanceUsdt;
 
       this.currentBalance = {
         total_balance_usdt: totalBalanceUsdt,
-        available_balance_usdt: availableBalanceUsdt,
-        locked_balance_usdt: lockedBalanceUsdt,
+        available_balance_usdt: finalAvailableBalance,
+        locked_balance_usdt: futuresBalance > 0 ? 0 : lockedBalanceUsdt,
         balances,
         last_updated: Date.now(),
       };
 
-      // Check for balance changes and generate alerts
-      this.checkBalanceChanges();
+      // ✅ CORREÇÃO: Só verificar mudanças de saldo se tiver saldo significativo
+      if (totalBalanceUsdt > 0.1) {
+        this.checkBalanceChanges();
+      }
 
       info(`Account balance loaded`, {
         totalBalance: totalBalanceUsdt.toFixed(2),
-        availableBalance: availableBalanceUsdt.toFixed(2),
-        lockedBalance: lockedBalanceUsdt.toFixed(2),
+        availableBalance: finalAvailableBalance.toFixed(2),
+        lockedBalance: (futuresBalance > 0 ? 0 : lockedBalanceUsdt).toFixed(2),
         assetCount: balances.length,
+        source: futuresBalance > 0 ? 'FUTURES' : 'SPOT'
       });
 
       return this.currentBalance;

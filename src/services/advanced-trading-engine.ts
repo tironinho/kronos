@@ -1041,7 +1041,20 @@ export class AdvancedTradingEngine {
       return { allowed: true, reason: `Tendência sideways, usando filtros de confiança` };
     }
     
-    // Bloquear trades contra tendência
+    // ✅ CORREÇÃO: Permitir trades contra tendência para símbolos prioritários ou alta confiança
+    // Esta função é chamada no shouldFollowTrend, vamos permitir para símbolos prioritários
+    // A confiança será verificada depois, então aqui só bloqueamos se não for prioritário
+    const isPriority = this.configService?.isSymbolPriority ? 
+      this.configService.isSymbolPriority(symbol) : false;
+    
+    if (isPriority) {
+      return { 
+        allowed: true, 
+        reason: `${signal} contra tendência ${trend} permitido para símbolo prioritário` 
+      };
+    }
+    
+    // Bloquear trades contra tendência apenas para símbolos não prioritários
     return { 
       allowed: false, 
       reason: `${signal} contra tendência ${trend}` 
@@ -1232,7 +1245,21 @@ export class AdvancedTradingEngine {
     
     // ✅ AJUSTE: SELL BIAS inteligente para Futures
     const ALLOWED_SIGNALS = ['BUY', 'STRONG_BUY', 'SELL', 'STRONG_SELL'];
-    const MIN_CONFIDENCE = 30; // ✅ AJUSTADO: 30% para permitir mais trades
+    // ✅ CORREÇÃO: Ajustar MIN_CONFIDENCE baseado em símbolo e capital
+    let MIN_CONFIDENCE = 30; // Base: 30% para permitir mais trades
+    
+    // ✅ Para símbolos prioritários (BTC, ETH) com capital baixo, usar confiança menor
+    const isPriority = this.configService.isSymbolPriority(symbol);
+    const symbolConfig = this.configService.getSymbolSettings(symbol);
+    
+    if (isPriority && availableBalance < 20) {
+      // Para BTC/ETH com capital baixo, usar confiança mínima menor do config se disponível
+      MIN_CONFIDENCE = Math.min(symbolConfig.minConfidence || 50, 50); // Máximo 50% para prioridades com capital baixo
+      console.log(`   📊 [PRIORIDADE] MIN_CONFIDENCE ajustado para ${MIN_CONFIDENCE}% (capital baixo: $${availableBalance.toFixed(2)})`);
+    } else if (symbolConfig.minConfidence && symbolConfig.minConfidence > 30) {
+      // Para outros símbolos, usar o config mas não maior que 60% se capital < $20
+      MIN_CONFIDENCE = availableBalance < 20 ? Math.min(symbolConfig.minConfidence, 60) : symbolConfig.minConfidence;
+    }
     
     // SELL BIAS: Favorecer SELL (recomendação: 85% - SELL performando melhor!)
     const sellBias = 0.85; // 85% preferência para SELL (SELL tem +0.66% vs BUY -0.70%)
@@ -1448,18 +1475,66 @@ export class AdvancedTradingEngine {
         f.filterType === 'MIN_NOTIONAL' || f.filterType === 'NOTIONAL'
       ) as any;
       
-      // Ajustar quantidade para respeitar stepSize
-      if (lotSizeFilter?.stepSize) {
-        const stepSize = parseFloat(lotSizeFilter.stepSize);
-        quantity = Math.floor(quantity / stepSize) * stepSize;
-      }
+      // ✅ CORREÇÃO CRÍTICA: Ajustar stepSize DEPOIS de verificar minQty
+      // Primeiro garantir minQty, depois ajustar stepSize
+      let originalQuantity = quantity;
       
-      // Garantir que respeita minQty
+      // ✅ CORREÇÃO 1: Ajustar para minQty primeiro
       if (lotSizeFilter?.minQty) {
         const minQty = parseFloat(lotSizeFilter.minQty);
         if (quantity < minQty) {
-          console.log(`⏸️ ${symbol}: Quantidade muito pequena (${quantity} < minQty ${minQty})`);
-          return null;
+          console.log(`⚠️ ${symbol}: Quantidade muito pequena (${quantity.toFixed(8)} < minQty ${minQty})`);
+          
+          // Verificar minNotional antes de ajustar
+          const minNotionalRequired = minNotionalFilter?.minNotional 
+            ? parseFloat(minNotionalFilter.minNotional) 
+            : 5.0; // Fallback: $5 mínimo da Binance Futures
+          
+          // Calcular quantidade mínima necessária para respeitar AMBOS (minQty E minNotional)
+          const qtyFromNotional = minNotionalRequired / currentPrice;
+          const requiredQty = Math.max(minQty, qtyFromNotional);
+          
+          // Para símbolos prioritários (BTC, ETH) com capital baixo, aumentar position size
+          const isPriority = this.configService.isSymbolPriority(symbol);
+          if (isPriority && availableBalance < 20) {
+            // Para símbolos prioritários, usar até 50% do capital se necessário
+            const maxMarginForPriority = availableBalance * 0.5;
+            const maxNotionalForPriority = maxMarginForPriority * actualLeverage;
+            const maxQtyForPriority = maxNotionalForPriority / currentPrice;
+            
+            if (requiredQty <= maxQtyForPriority) {
+              quantity = requiredQty;
+              console.log(`   📈 [PRIORIDADE] Ajustando quantidade para ${quantity.toFixed(8)} (minQty: ${minQty}, minNotional: $${minNotionalRequired})`);
+              // Recalcular margem e notional
+              notional = quantity * currentPrice;
+              marginForTrade = notional / actualLeverage;
+            } else {
+              console.log(`   ❌ ${symbol}: Capital insuficiente mesmo para símbolo prioritário (precisa $${(requiredQty * currentPrice / actualLeverage).toFixed(2)})`);
+              return null;
+            }
+          } else if (requiredQty * currentPrice / actualLeverage <= availableBalance) {
+            quantity = requiredQty;
+            console.log(`   📈 Ajustando quantidade para ${quantity.toFixed(8)} (minQty: ${minQty}, minNotional: $${minNotionalRequired})`);
+            // Recalcular margem e notional
+            notional = quantity * currentPrice;
+            marginForTrade = notional / actualLeverage;
+          } else {
+            console.log(`   ❌ ${symbol}: Capital insuficiente para minQty + minNotional (precisa $${(requiredQty * currentPrice / actualLeverage).toFixed(2)} > disponível $${availableBalance.toFixed(2)})`);
+            return null;
+          }
+        }
+      }
+      
+      // ✅ CORREÇÃO 2: Ajustar stepSize usando Math.ceil para não zerar
+      if (lotSizeFilter?.stepSize) {
+        const stepSize = parseFloat(lotSizeFilter.stepSize);
+        // Usar Math.ceil para garantir que não zere a quantidade
+        quantity = Math.ceil(quantity / stepSize) * stepSize;
+        if (quantity !== originalQuantity && quantity > 0) {
+          console.log(`   🔧 Quantidade ajustada para stepSize: ${quantity.toFixed(8)} (step: ${stepSize})`);
+          // Recalcular notional se mudou
+          notional = quantity * currentPrice;
+          marginForTrade = notional / actualLeverage;
         }
       }
       
@@ -1902,26 +1977,53 @@ export class AdvancedTradingEngine {
         if ((minNotional && notional < minNotional) || requiredInitialMargin > availableMargin) {
           console.log(`\n🚫 TRADE CANCELADO (Futures): Requisitos não atendidos`);
           if (minNotional && notional < minNotional) {
-            console.log(`   Notional insuficiente: $${notional.toFixed(2)} < min $${minNotional.toFixed(2)}`);
+            console.log(`   ❌ Notional insuficiente: $${notional.toFixed(2)} < mínimo $${minNotional.toFixed(2)}`);
+            console.log(`   💡 Para Futures, notional mínimo é $20 (não $5!)`);
+            console.log(`   💰 Capital necessário para mínimo: $${(minNotional / leverage).toFixed(2)}`);
+            console.log(`   💰 Capital disponível: $${availableMargin.toFixed(2)}`);
           }
           if (requiredInitialMargin > availableMargin) {
-            console.log(`   Margem insuficiente: precisa $${requiredInitialMargin.toFixed(2)} > disponível $${availableMargin.toFixed(2)}`);
+            console.log(`   ❌ Margem insuficiente: precisa $${requiredInitialMargin.toFixed(2)} > disponível $${availableMargin.toFixed(2)}`);
           }
-          return;
+          return; // ✅ Retornar sem erro - não executa ordem
         }
 
         console.log('✅ Requisitos atendidos (Futures), executando ordem...');
-        // ✅ One-Way Mode: Não enviar positionSide (será determinado automaticamente pelo side)
-        const orderResult = await binanceClient.createFuturesOrder(
-          symbol,
-          decision.action as 'BUY' | 'SELL',  // ✅ Type assertion: action nunca será HOLD aqui
-          'MARKET',
-          quantity,
-          undefined,
-          undefined  // ✅ SEM positionSide (One-Way Mode)
-        );
+        
+        let orderResult: any;
+        try {
+          // ✅ One-Way Mode: Não enviar positionSide (será determinado automaticamente pelo side)
+          orderResult = await binanceClient.createFuturesOrder(
+            symbol,
+            decision.action as 'BUY' | 'SELL',  // ✅ Type assertion: action nunca será HOLD aqui
+            'MARKET',
+            quantity,
+            undefined,
+            undefined  // ✅ SEM positionSide (One-Way Mode)
+          );
+        } catch (orderError: any) {
+          // ✅ CORREÇÃO CRÍTICA: Capturar erro da Binance ANTES de salvar no banco
+          const errorCode = orderError.response?.data?.code;
+          const errorMsg = orderError.response?.data?.msg || orderError.message;
+          
+          console.error(`❌ ERRO ao executar ordem na Binance:`);
+          console.error(`   Código: ${errorCode}`);
+          console.error(`   Mensagem: ${errorMsg}`);
+          
+          // Tratamento especial para erro -4164 (notional mínimo)
+          if (errorCode === -4164) {
+            console.log(`⚠️ Binance rejeitou: Notional muito pequeno (exige $20 mínimo para Futures)`);
+            console.log(`   Notional atual: $${notional.toFixed(2)}`);
+            console.log(`   ✅ Sistema continuando... tentará outras moedas`);
+            return; // ✅ NÃO salvar no banco e retornar sem erro
+          }
+          
+          // Para outros erros, re-throw para ser capturado pelo catch externo
+          throw orderError;
+        }
 
-        console.log(`✅ Ordem FUTURES executada!`);
+        // ✅ Só chega aqui se a ordem foi ACEITA pela Binance
+        console.log(`✅ Ordem FUTURES executada com SUCESSO na Binance!`);
         console.log(`   Order ID: ${orderResult.orderId}`);
         console.log(`   Status: ${orderResult.status}`);
         console.log(`   Executed Qty: ${orderResult.executedQty || 'N/A'}`);
@@ -1938,7 +2040,7 @@ export class AdvancedTradingEngine {
         console.log(`   📊 Salvando trade: qty=${finalQuantity}, price=${finalPrice}`);
         console.log(`   ⚠️ Nota: avgPrice virá como 0 até execução completa da ordem`);
 
-        // Persistir
+        // ✅ Só salvar no banco se ordem foi realmente aceita pela Binance
         const tradeId = await this.saveTradeToDB({
           symbol,
           side: decision.action as 'BUY' | 'SELL',  // ✅ Type assertion: action nunca será HOLD aqui
