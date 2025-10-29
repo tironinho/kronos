@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { logger } from '@/services/logger';
+import { getSystemLogger, getComponentLogger, SystemComponent, SystemAction } from '@/services/logging';
+
+const logger = getSystemLogger();
+const componentLogger = getComponentLogger(SystemComponent.TradingEngine);
 
 /**
  * GET /api/logs
@@ -13,14 +16,14 @@ export async function GET(request: NextRequest) {
 
     switch (action) {
       case 'stats':
-        const stats = logger.getLogStats();
+        const stats = await logger.getLogStatistics();
         return NextResponse.json({
           success: true,
           data: stats
         });
 
       case 'read':
-        const logLines = logger.readLogs(lines);
+        const logLines = await logger.getRecentLogs(lines);
         return NextResponse.json({
           success: true,
           data: {
@@ -30,14 +33,15 @@ export async function GET(request: NextRequest) {
         });
 
       case 'clear':
-        logger.clearLogs();
+        await logger.clearOldLogs(0); // Limpar todos os logs
+        await componentLogger.info(SystemAction.Configuration, 'Logs limpos via API');
         return NextResponse.json({
           success: true,
           message: 'Logs cleared successfully'
         });
 
       default:
-        const logStats = logger.getLogStats();
+        const logStats = await logger.getLogStatistics();
         return NextResponse.json({
           success: true,
           data: {
@@ -84,22 +88,30 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Escrever log
+    // Escrever log usando o logger do sistema
+    const systemLogger = getSystemLogger();
+    const logLevel = level as 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'CRITICAL';
+    const componentMap: Record<string, SystemComponent> = {
+      'API': SystemComponent.TradingEngine,
+      'default': SystemComponent.TradingEngine
+    };
+    const actionMap: Record<string, SystemAction> = {
+      'API': SystemAction.DataProcessing,
+      'default': SystemAction.DataProcessing
+    };
+    
+    const comp = componentMap[component || 'default'] || SystemComponent.TradingEngine;
+    const action = actionMap[component || 'default'] || SystemAction.DataProcessing;
+    
     switch (level) {
       case 'DEBUG':
-        logger.debug(message, component, data);
-        break;
       case 'INFO':
-        logger.info(message, component, data);
+        await systemLogger.addLog(logLevel, comp, action, message, data, true);
         break;
       case 'WARN':
-        logger.warn(message, component, data);
-        break;
       case 'ERROR':
-        logger.error(message, component, data);
-        break;
       case 'CRITICAL':
-        logger.critical(message, component, data);
+        await systemLogger.addLog(logLevel, comp, action, message, data, false);
         break;
     }
 

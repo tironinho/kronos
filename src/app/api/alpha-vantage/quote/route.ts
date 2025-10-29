@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { alphaVantageClient } from '@/services/alpha-vantage-client';
-import { logger } from '@/services/logger';
+import { getComponentLogger, SystemComponent, SystemAction } from '@/services/logging';
+
+const logger = getComponentLogger(SystemComponent.TradingEngine);
 
 /**
  * GET /api/alpha-vantage/quote
@@ -29,7 +31,7 @@ export async function GET(request: NextRequest) {
           quote = await alphaVantageClient.getStockQuote(symbol);
         }
         
-        logger.info('API: Alpha Vantage quote retrieved', 'API', { symbol, type });
+        await logger.info(SystemAction.DataProcessing, 'API: Alpha Vantage quote retrieved', { symbol, type });
         return NextResponse.json({
           success: true,
           data: quote
@@ -39,7 +41,7 @@ export async function GET(request: NextRequest) {
         const symbols = symbol.split(',');
         const quotes = await alphaVantageClient.getMultipleStockQuotes(symbols);
         
-        logger.info('API: Alpha Vantage multiple quotes retrieved', 'API', { 
+        await logger.info(SystemAction.DataProcessing, 'API: Alpha Vantage multiple quotes retrieved', { 
           symbols: symbols.length, 
           retrieved: quotes.size 
         });
@@ -49,14 +51,14 @@ export async function GET(request: NextRequest) {
         });
 
       default:
-        logger.warn('API: Invalid action for Alpha Vantage quote', 'API');
+        await logger.warn(SystemAction.DataProcessing, 'API: Invalid action for Alpha Vantage quote');
         return NextResponse.json({
           success: false,
           error: 'Invalid action. Valid actions: single, multiple'
         }, { status: 400 });
     }
   } catch (error) {
-    logger.error('API: Error in Alpha Vantage quote request', 'API', null, error as Error);
+    await logger.error(SystemAction.ErrorHandling, 'API: Error in Alpha Vantage quote request', error as Error);
     return NextResponse.json({
       success: false,
       error: 'Failed to process Alpha Vantage quote request'

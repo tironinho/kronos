@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { alphaVantageClient } from '@/services/alpha-vantage-client';
-import { logger } from '@/services/logger';
+import { getComponentLogger, SystemComponent, SystemAction } from '@/services/logging';
+
+const logger = getComponentLogger(SystemComponent.TradingEngine);
 
 /**
  * GET /api/alpha-vantage/news
@@ -16,7 +18,7 @@ export async function GET(request: NextRequest) {
     switch (action) {
       case 'sentiment':
         const newsSentiment = await alphaVantageClient.getNewsSentiment(topics, limit);
-        logger.info('API: Alpha Vantage news sentiment retrieved', 'API', { 
+        await logger.info(SystemAction.DataProcessing, 'API: Alpha Vantage news sentiment retrieved', { 
           topics: topics.length, 
           limit, 
           newsCount: newsSentiment.length 
@@ -28,7 +30,7 @@ export async function GET(request: NextRequest) {
 
       case 'crypto-sentiment':
         const cryptoSentiment = await alphaVantageClient.getNewsSentiment(['blockchain', 'cryptocurrency', 'bitcoin'], limit);
-        logger.info('API: Alpha Vantage crypto sentiment retrieved', 'API', { 
+        await logger.info(SystemAction.DataProcessing, 'API: Alpha Vantage crypto sentiment retrieved', { 
           newsCount: cryptoSentiment.length 
         });
         return NextResponse.json({
@@ -38,7 +40,7 @@ export async function GET(request: NextRequest) {
 
       case 'earnings-sentiment':
         const earningsSentiment = await alphaVantageClient.getNewsSentiment(['earnings', 'financial'], limit);
-        logger.info('API: Alpha Vantage earnings sentiment retrieved', 'API', { 
+        await logger.info(SystemAction.DataProcessing, 'API: Alpha Vantage earnings sentiment retrieved', { 
           newsCount: earningsSentiment.length 
         });
         return NextResponse.json({
@@ -47,14 +49,14 @@ export async function GET(request: NextRequest) {
         });
 
       default:
-        logger.warn('API: Invalid action for Alpha Vantage news', 'API');
+        await logger.warn(SystemAction.DataProcessing, 'API: Invalid action for Alpha Vantage news');
         return NextResponse.json({
           success: false,
           error: 'Invalid action. Valid actions: sentiment, crypto-sentiment, earnings-sentiment'
         }, { status: 400 });
     }
   } catch (error) {
-    logger.error('API: Error in Alpha Vantage news request', 'API', null, error as Error);
+    await logger.error(SystemAction.ErrorHandling, 'API: Error in Alpha Vantage news request', error as Error);
     return NextResponse.json({
       success: false,
       error: 'Failed to process Alpha Vantage news request'

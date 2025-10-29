@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { tradePriceMonitor } from '@/services/trade-price-monitor.service';
 import { supabase } from '@/services/supabase-db';
-import { getComponentLogger, SystemAction, SystemComponent } from '@/services/logger';
+import { getComponentLogger, SystemAction, SystemComponent } from '@/services/logging';
 
 const logger = getComponentLogger(SystemComponent.TradingEngine);
 

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { alphaVantageClient } from '@/services/alpha-vantage-client';
-import { logger } from '@/services/logger';
+import { getComponentLogger, SystemComponent, SystemAction } from '@/services/logging';
+
+const logger = getComponentLogger(SystemComponent.TradingEngine);
 
 /**
  * GET /api/alpha-vantage/stats
@@ -10,7 +12,7 @@ export async function GET(request: NextRequest) {
   try {
     const stats = alphaVantageClient.getApiStats();
     
-    logger.info('API: Alpha Vantage API stats retrieved', 'API');
+    await logger.info(SystemAction.DataProcessing, 'API: Alpha Vantage API stats retrieved');
     return NextResponse.json({
       success: true,
       data: {
@@ -21,7 +23,7 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error) {
-    logger.error('API: Error in Alpha Vantage stats request', 'API', null, error as Error);
+    await logger.error(SystemAction.ErrorHandling, 'API: Error in Alpha Vantage stats request', error as Error);
     return NextResponse.json({
       success: false,
       error: 'Failed to process Alpha Vantage stats request'
@@ -37,13 +39,13 @@ export async function POST(request: NextRequest) {
   try {
     alphaVantageClient.resetRateLimit();
     
-    logger.info('API: Alpha Vantage rate limit reset', 'API');
+    await logger.info(SystemAction.Configuration, 'API: Alpha Vantage rate limit reset');
     return NextResponse.json({
       success: true,
       message: 'Rate limit reset successfully'
     });
   } catch (error) {
-    logger.error('API: Error in Alpha Vantage rate limit reset', 'API', null, error as Error);
+    await logger.error(SystemAction.ErrorHandling, 'API: Error in Alpha Vantage rate limit reset', error as Error);
     return NextResponse.json({
       success: false,
       error: 'Failed to reset Alpha Vantage rate limit'
