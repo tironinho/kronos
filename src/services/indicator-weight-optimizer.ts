@@ -71,7 +71,7 @@ export class IndicatorWeightOptimizer {
       }
 
       // Buscar parâmetros de análise para essas trades
-      const tradeIds = closedTrades.map(t => t.trade_id);
+      const tradeIds = closedTrades.map((t: any) => t.trade_id);
       const { data: analysisParams, error: paramsError } = await supabase
         .from('trade_analysis_parameters')
         .select('*')
@@ -83,14 +83,14 @@ export class IndicatorWeightOptimizer {
       }
 
       // Mapear trades com seus parâmetros
-      const tradesWithParams = closedTrades.map(trade => {
-        const params = analysisParams.find(p => p.trade_id === trade.trade_id);
+      const tradesWithParams = closedTrades.map((trade: any) => {
+        const params = analysisParams.find((p: any) => p.trade_id === trade.trade_id);
         return {
           trade,
           params,
           isWinner: parseFloat(trade.pnl?.toString() || '0') > 0
         };
-      }).filter(t => t.params); // Filtrar apenas trades com parâmetros
+      }).filter((t: any) => t.params); // Filtrar apenas trades com parâmetros
 
       // Analisar cada indicador
       const indicators: IndicatorPerformance[] = [];
@@ -167,19 +167,19 @@ export class IndicatorWeightOptimizer {
     currentWeight: number
   ): IndicatorPerformance | null {
     const scores = tradesWithParams
-      .map(t => ({ score: getScore(t), isWinner: t.isWinner, pnl: parseFloat(t.trade.pnl?.toString() || '0') }))
-      .filter(s => !isNaN(s.score) && s.score !== 0);
+      .map((t: any) => ({ score: getScore(t), isWinner: t.isWinner, pnl: parseFloat(t.trade.pnl?.toString() || '0') }))
+      .filter((s: any) => !isNaN(s.score) && s.score !== 0);
 
     if (scores.length < 5) return null; // Mínimo de 5 trades com dados
 
     const totalTrades = scores.length;
-    const winningTrades = scores.filter(s => s.isWinner).length;
-    const avgConfidence = scores.reduce((sum, s) => sum + Math.abs(s.score), 0) / totalTrades;
-    const avgPnl = scores.reduce((sum, s) => sum + s.pnl, 0) / totalTrades;
+    const winningTrades = scores.filter((s: any) => s.isWinner).length;
+    const avgConfidence = scores.reduce((sum: number, s: any) => sum + Math.abs(s.score), 0) / totalTrades;
+    const avgPnl = scores.reduce((sum: number, s: any) => sum + s.pnl, 0) / totalTrades;
 
     // Correlação: score positivo deve estar associado a wins
-    const positiveScoreTrades = scores.filter(s => s.score > 0);
-    const positiveScoreWins = positiveScoreTrades.filter(s => s.isWinner).length;
+    const positiveScoreTrades = scores.filter((s: any) => s.score > 0);
+    const positiveScoreWins = positiveScoreTrades.filter((s: any) => s.isWinner).length;
     const correlationWithSuccess = positiveScoreTrades.length > 0
       ? positiveScoreWins / positiveScoreTrades.length
       : 0;
@@ -224,8 +224,8 @@ export class IndicatorWeightOptimizer {
       return null;
     }
 
-    // Calcular novos pesos baseado em performance
-    const totalSuggestedWeight = performance.reduce((sum, p) => sum + p.suggestedWeight, 0);
+      // Calcular novos pesos baseado em performance
+      const totalSuggestedWeight = performance.reduce((sum: number, p: IndicatorPerformance) => sum + p.suggestedWeight, 0);
     
     // Normalizar para somar 1.0
     const normalizedWeights: OptimizedWeights = {
@@ -237,7 +237,7 @@ export class IndicatorWeightOptimizer {
       smartmoney: 0
     };
 
-    performance.forEach(p => {
+      performance.forEach((p: IndicatorPerformance) => {
       const normalized = p.suggestedWeight / totalSuggestedWeight;
       switch (p.indicator) {
         case 'technical':
@@ -271,8 +271,8 @@ export class IndicatorWeightOptimizer {
     });
 
     // Renormalizar após ajuste gradual
-    const finalTotal = Object.values(normalizedWeights).reduce((a, b) => a + b, 0);
-    Object.keys(normalizedWeights).forEach(key => {
+    const finalTotal = Object.values(normalizedWeights).reduce((a: number, b: number) => a + b, 0);
+    Object.keys(normalizedWeights).forEach((key: string) => {
       normalizedWeights[key as keyof OptimizedWeights] = normalizedWeights[key as keyof OptimizedWeights] / finalTotal;
     });
 

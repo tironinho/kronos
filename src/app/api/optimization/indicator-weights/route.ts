@@ -6,7 +6,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { indicatorWeightOptimizer } from '@/services/indicator-weight-optimizer';
-import { predictiveAnalyzerV2 } from '@/services/analyzers/predictive-analyzer-v2';
 
 export async function GET() {
   try {
@@ -42,7 +41,10 @@ export async function POST() {
     }
 
     // Aplicar pesos otimizados
-    predictiveAnalyzerV2.updateWeights(optimized);
+    const { predictiveAnalyzerV2 } = await import('@/services/analyzers/predictive-analyzer-v2');
+    if (predictiveAnalyzerV2 && typeof predictiveAnalyzerV2.updateWeights === 'function') {
+      predictiveAnalyzerV2.updateWeights(optimized);
+    }
     
     return NextResponse.json({
       success: true,

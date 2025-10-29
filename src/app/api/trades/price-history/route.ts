@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
       total_snapshots: history.length,
       trades_analyzed: uniqueTrades.size,
       average_pnl_percent: pnls.length > 0
-        ? pnls.reduce((a, b) => a + b, 0) / pnls.length
+        ? pnls.reduce((a: number, b: number) => a + b, 0) / pnls.length
         : 0,
       max_pnl_percent: pnls.length > 0 ? Math.max(...pnls) : 0,
       min_pnl_percent: pnls.length > 0 ? Math.min(...pnls) : 0,
