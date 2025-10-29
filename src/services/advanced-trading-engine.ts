@@ -167,20 +167,20 @@ export class AdvancedTradingEngine {
         
         if (dbTrades && dbTrades.length > 0) {
           // Contar trades por símbolo e lado
-          dbTrades.forEach(t => {
+          dbTrades.forEach((t: any) => {
             const key = `${t.symbol}_${t.side}`;
             dbOpenTradesBySymbol[key] = (dbOpenTradesBySymbol[key] || 0) + 1;
           });
           
           console.log(`📊 Trades abertas no banco: ${dbTrades.length}`);
           const symbolCounts: { [key: string]: number } = {};
-          dbTrades.forEach(t => {
+          dbTrades.forEach((t: any) => {
             symbolCounts[t.symbol] = (symbolCounts[t.symbol] || 0) + 1;
           });
           
           Object.entries(symbolCounts)
-            .filter(([_, count]) => count > 2)
-            .forEach(([symbol, count]) => {
+            .filter(([_symbol, count]: [string, number]) => count > 2)
+            .forEach(([symbol, count]: [string, number]) => {
               console.log(`   ⚠️ ${symbol}: ${count} trades abertas`);
             });
         }
@@ -192,7 +192,7 @@ export class AdvancedTradingEngine {
     const opportunities: any[] = [];
     
     // ✅ Analisar símbolos prioritários primeiro, depois os demais
-    const symbolsToAnalyze = [...symbolConfig.prioritySymbols, ...symbolConfig.allowedSymbols.filter(s => !symbolConfig.prioritySymbols.includes(s))];
+    const symbolsToAnalyze = [...symbolConfig.prioritySymbols, ...symbolConfig.allowedSymbols.filter((s: string) => !symbolConfig.prioritySymbols.includes(s))];
     
     for (const symbol of symbolsToAnalyze) {
       // ✅ CRÍTICO: Verificar se já existe trade aberta no banco antes de analisar
@@ -328,7 +328,7 @@ export class AdvancedTradingEngine {
     }
     
     console.log(`\n📊 Top oportunidades encontradas (${opportunities.length} total):`);
-    opportunities.slice(0, Math.min(5, opportunities.length)).forEach((opp, idx) => {
+    opportunities.slice(0, Math.min(5, opportunities.length)).forEach((opp: any, idx: number) => {
       console.log(`   ${idx + 1}. ${opp.symbol}: Score ${opp.score.toFixed(2)}, Confiança ${opp.confidence}%, Custo mínimo $${opp.estimatedMinCost.toFixed(2)}`);
     });
     
@@ -338,7 +338,7 @@ export class AdvancedTradingEngine {
     } else {
       console.log(`\n✅ ${opportunities.length} oportunidades encontradas e prontas para execução!`);
       console.log(`📋 Detalhes das oportunidades:`);
-      opportunities.forEach((opp, idx) => {
+      opportunities.forEach((opp: any, idx: number) => {
         console.log(`   ${idx + 1}. ${opp.symbol}: action=${opp.decision?.action}, size=${opp.decision?.size}, conf=${opp.confidence}%`);
       });
     }
@@ -1391,7 +1391,7 @@ export class AdvancedTradingEngine {
     
     // Obter histórico de preços para calcular volatilidade
     const klines = await binanceClient.getKlines(symbol, '1h', 48);
-    const prices = klines.map(k => parseFloat(k.close));
+    const prices = klines.map((k: any) => parseFloat(k.close));
     const volatility = leverageManager.calculateVolatility(prices);
     
     // Calcular leverage OTIMIZADO
@@ -1697,12 +1697,12 @@ export class AdvancedTradingEngine {
           // (o limite já foi verificado pelo canOpenTradeWithPriority)
           if (existingTrades.length > 0) {
             // Verificar se já existe trade com mesmo lado (BUY ou SELL)
-            const sameSideTrades = existingTrades.filter(t => t.side === decision.action);
+            const sameSideTrades = existingTrades.filter((t: any) => t.side === decision.action);
             
             if (sameSideTrades.length > 0) {
               console.log(`\n🚫 TRADE BLOQUEADA: Já existe trade ${decision.action} aberta para ${symbol}`);
               console.log(`   Trades ${decision.action} existentes: ${sameSideTrades.length}`);
-              console.log(`   IDs: ${sameSideTrades.map(t => t.trade_id).join(', ')}`);
+              console.log(`   IDs: ${sameSideTrades.map((t: any) => t.trade_id).join(', ')}`);
               
               // Só permitir se for trade excepcional E já está no limite de posições
               if (existingTrades.length >= maxPositionsForSymbol) {
@@ -2976,7 +2976,7 @@ export class AdvancedTradingEngine {
               console.log(`✅ Condições OK - Executando trade ${opportunity.symbol}...`);
               
               // ✅ NOVO: Verificar se precisa substituir trade existente
-              const symbolTrades = Array.from(this.openTrades.values()).filter(trade => trade.symbol === opportunity.symbol);
+              const symbolTrades = Array.from(this.openTrades.values()).filter((trade: any) => trade.symbol === opportunity.symbol);
               const symbolConfig = this.configService.getSymbolSettings(opportunity.symbol);
               const maxPositionsForSymbol = symbolConfig?.maxPositions || 2;
               
@@ -3018,7 +3018,7 @@ export class AdvancedTradingEngine {
         console.log(`📊 Trades abertas: ${this.openTrades.size}`);
         if (this.openTrades.size > 0) {
           console.log('📋 Lista de trades abertas:');
-          this.openTrades.forEach((trade, symbol) => {
+          this.openTrades.forEach((trade: any, symbol: string) => {
             console.log(`   - ${symbol}: ${trade.side} ${trade.quantity} @ $${trade.entryPrice}`);
           });
         }
@@ -3217,7 +3217,7 @@ export class AdvancedTradingEngine {
       
       // Trades
       openTradesCount: this.openTrades.size,
-      openTrades: Array.from(this.openTrades.entries()).map(([symbol, trade]) => ({
+      openTrades: Array.from(this.openTrades.entries()).map(([symbol, trade]: [string, any]) => ({
         symbol,
         side: trade.side,
         quantity: trade.quantity,
@@ -3297,7 +3297,7 @@ export class AdvancedTradingEngine {
     }
     
     // 2. Verificação de limite por símbolo
-    const symbolTrades = Array.from(this.openTrades.values()).filter(trade => trade.symbol === symbol);
+    const symbolTrades = Array.from(this.openTrades.values()).filter((trade: any) => trade.symbol === symbol);
     const maxPositionsForSymbol = symbolConfig?.maxPositions || this.configService.getConfig().riskManagement.maxPositionsPerSymbol;
     
     console.log(`   Trades do símbolo ${symbol}: ${symbolTrades.length}/${maxPositionsForSymbol}`);
@@ -3400,7 +3400,7 @@ export class AdvancedTradingEngine {
    */
   private async replaceWorstTrade(symbol: string, newConfidence: number, newScore: number): Promise<void> {
     try {
-      const symbolTrades = Array.from(this.openTrades.values()).filter(trade => trade.symbol === symbol);
+      const symbolTrades = Array.from(this.openTrades.values()).filter((trade: any) => trade.symbol === symbol);
       
       if (symbolTrades.length === 0) {
         console.log(`⚠️ Nenhuma trade do símbolo ${symbol} para substituir`);
@@ -3620,7 +3620,7 @@ export class AdvancedTradingEngine {
       
       // Agrupar por símbolo e lado
       const tradesBySymbolSide: { [key: string]: any[] } = {};
-      openTrades.forEach(t => {
+      openTrades.forEach((t: any) => {
         const key = `${t.symbol}_${t.side}`;
         if (!tradesBySymbolSide[key]) {
           tradesBySymbolSide[key] = [];
