@@ -556,8 +556,15 @@ export class BinanceApiClient {
         }];
       }
       return [{ symbol: symbol, longShortRatio: '0.5', longAccount: '0', shortAccount: '0', timestamp: Date.now() }];
-    } catch (error) {
-      console.warn('⚠️ Erro ao buscar Long/Short ratio, retornando neutro:', error);
+    } catch (error: any) {
+      // ✅ CORREÇÃO: Logar apenas mensagem curta, sem stack trace completo
+      const errorMsg = error?.message || 'timeout/erro desconhecido';
+      const isTimeout = errorMsg.includes('timeout') || error?.code === 'ECONNABORTED';
+      if (isTimeout) {
+        console.warn(`⚠️ Timeout ao buscar Long/Short ratio para ${symbol} (retornando neutro)`);
+      } else {
+        console.warn(`⚠️ Erro ao buscar Long/Short ratio para ${symbol}: ${errorMsg.substring(0, 50)} (retornando neutro)`);
+      }
       // Retorna neutro em caso de erro
       return [{
         symbol: symbol,

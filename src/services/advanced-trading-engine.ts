@@ -1271,9 +1271,10 @@ export class AdvancedTradingEngine {
     const symbolConfig = this.configService.getSymbolSettings(symbol);
     
     if (isPriority && availableBalance < 20) {
-      // Para BTC/ETH com capital baixo, usar confiança mínima menor do config se disponível
-      MIN_CONFIDENCE = Math.min(symbolConfig.minConfidence || 50, 50); // Máximo 50% para prioridades com capital baixo
-      console.log(`   📊 [PRIORIDADE] MIN_CONFIDENCE ajustado para ${MIN_CONFIDENCE}% (capital baixo: $${availableBalance.toFixed(2)})`);
+      // ✅ CORREÇÃO: Para BTC/ETH com capital baixo (< $20), usar confiança 50% (ignorar config rígido)
+      // Isso permite que trades de 55%+ confiança passem mesmo com config de 70%
+      MIN_CONFIDENCE = 50; // Fixo em 50% para prioridades com capital baixo (permite trades de 55%+)
+      console.log(`   📊 [PRIORIDADE] MIN_CONFIDENCE ajustado para ${MIN_CONFIDENCE}% (capital baixo: $${availableBalance.toFixed(2)}, ignora config rígido)`);
     } else if (symbolConfig.minConfidence && symbolConfig.minConfidence > 30) {
       // Para outros símbolos, usar o config mas não maior que 60% se capital < $20
       MIN_CONFIDENCE = availableBalance < 20 ? Math.min(symbolConfig.minConfidence, 60) : symbolConfig.minConfidence;

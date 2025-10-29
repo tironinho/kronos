@@ -80,8 +80,13 @@ export class DerivativesAnalyzer {
     try {
       const ratio = await this.binanceClient.getLongShortRatio(symbol, '1h', 1);
       return parseFloat(ratio[0]?.longShortRatio || '0.5');
-    } catch (error) {
-      console.warn('Erro ao buscar Long/Short ratio:', error);
+    } catch (error: any) {
+      // ✅ CORREÇÃO: Logar apenas mensagem curta (já logado em binance-api.ts)
+      // Não duplicar stack trace nos logs
+      const isTimeout = error?.message?.includes('timeout') || error?.code === 'ECONNABORTED';
+      if (!isTimeout) {
+        console.warn(`⚠️ Erro ao processar Long/Short ratio para ${symbol} (retornando neutro)`);
+      }
       return 0.5; // 50/50 neutro
     }
   }
