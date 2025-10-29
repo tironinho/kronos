@@ -101,7 +101,7 @@ export class SpotTradingEngine {
         await this.sleep(10000); // 10 segundos
         
       } catch (error) {
-        console.error('❌ Erro no loop de trading:', error);
+        console.error('❌ Erro no loop de trading:', error as Error);
         await this.sleep(5000);
       }
     }
@@ -124,7 +124,7 @@ export class SpotTradingEngine {
       
       return 0;
     } catch (error) {
-      console.error('Erro ao buscar saldo:', error);
+      console.error('Erro ao buscar saldo:', error as Error);
       return 0;
     }
   }
@@ -234,7 +234,7 @@ export class SpotTradingEngine {
       }
       
     } catch (error) {
-      console.error(`❌ Erro ao abrir trade ${symbol}:`, error);
+      console.error(`❌ Erro ao abrir trade ${symbol}:`, error as Error);
     }
   }
 
@@ -257,7 +257,7 @@ export class SpotTradingEngine {
       
       return order.orderId?.toString() || null;
     } catch (error) {
-      console.error('Erro ao colocar ordem na Binance:', error);
+      console.error('Erro ao colocar ordem na Binance:', error as Error);
       return null;
     }
   }
@@ -270,7 +270,7 @@ export class SpotTradingEngine {
       const ticker = await this.binanceClient.get24hrTicker(symbol);
       return parseFloat((ticker as any).lastPrice || ticker as any).lastPrice || 0;
     } catch (error) {
-      console.error('Erro ao buscar preço:', error);
+      console.error('Erro ao buscar preço:', error as Error);
       return 0;
     }
   }
@@ -305,7 +305,7 @@ export class SpotTradingEngine {
           }
           
         } catch (error) {
-          console.error(`Erro ao monitorar trade ${symbol}:`, error);
+          console.error(`Erro ao monitorar trade ${symbol}:`, error as Error);
         }
       }
     }
@@ -385,7 +385,7 @@ export class SpotTradingEngine {
       }
       
     } catch (error) {
-      console.error('Erro ao fechar trade:', error);
+      console.error('Erro ao fechar trade:', error as Error);
     }
   }
 
@@ -415,7 +415,7 @@ export class SpotTradingEngine {
         });
       }
     } catch (error) {
-      console.error('Erro ao salvar trade no banco:', error);
+      console.error('Erro ao salvar trade no banco:', error as Error);
     }
   }
 
@@ -438,7 +438,7 @@ export class SpotTradingEngine {
           .eq('trade_id', trade.id);
       }
     } catch (error) {
-      console.error('Erro ao atualizar trade no banco:', error);
+      console.error('Erro ao atualizar trade no banco:', error as Error);
     }
   }
 

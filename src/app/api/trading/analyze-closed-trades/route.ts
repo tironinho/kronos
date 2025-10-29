@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { aiReplyAnalyzer } from '@/services/analyzers/ai-replay-analyzer';
-import { getSupabaseClient } from '@/services/supabase-db';
+import { supabase } from '@/services/supabase-db';
 
 /**
  * API para análise retrospectiva de trades fechadas com IA
@@ -18,8 +18,6 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    const { supabase } = await getSupabaseClient();
-    
     // Buscar trade fechada
     const { data: trade, error } = await supabase
       .from('real_trades')
@@ -102,7 +100,6 @@ export async function POST(request: Request) {
  */
 export async function GET(request: Request) {
   try {
-    const { supabase } = await getSupabaseClient();
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '10');
 

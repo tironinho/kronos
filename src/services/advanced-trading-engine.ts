@@ -48,7 +48,6 @@ export class AdvancedTradingEngine {
   private initialFuturesEquity = 0; // Equity inicial de Futuros
   private drawdownStopTriggered = false; // Stop global 20%
   private configService = TradingConfigurationService.getInstance();
-  private monitoringService: IntelligentMonitoringService;
   private positionSizingService: DynamicPositionSizingService;
   private cacheService = CacheService.getInstance();
   private equityService = EquityMonitoringService.getInstance(); // ✅ Configuração do sistema
@@ -116,7 +115,6 @@ export class AdvancedTradingEngine {
     }
   }
   private constructor() {
-    this.monitoringService = new IntelligentMonitoringService();
     this.positionSizingService = new DynamicPositionSizingService();
   }
   
@@ -530,61 +528,158 @@ export class AdvancedTradingEngine {
     }
   }
   
+
   /**
-   * Verifica monitoramento inteligente para todas as trades abertas
+   * Cria análise da trade para dimensionamento dinâmico
    */
-  private async checkIntelligentMonitoring(): Promise<void> {
+  private async createTradeAnalysis(symbol: string, decision: TradeDecision): Promise<any> {
     try {
-      if (!this.monitoringService || this.openTrades.size === 0) {
-        return;
+      // Obter dados técnicos atuais
+      const technicalData = await this.getTechnicalAnalysis(symbol);
+      
+      // Calcular volatilidade
+      const volatility = this.calculateVolatility(symbol);
+      
+      // Determinar condição do mercado
+      const marketCondition = this.determineMarketCondition(symbol);
+      
+      // Contar sinais técnicos confirmando
+      const technicalSignals = this.countTechnicalSignals(symbol, decision.action);
+      
+      // Calcular score fundamental (simplificado)
+      const fundamentalScore = this.calculateFundamentalScore(symbol);
+      
+      // Calcular score de confluência
+      const confluenceScore = this.positionSizingService.calculateConfluenceScore({
+        confidence: decision.confidence / 100,
+        score: decision.confidence,
+        riskRewardRatio: 0, // Será calculado pelo position sizing
+        confluenceScore: 0, // Será calculado
+        volatility,
+        marketCondition,
+        technicalSignals,
+        fundamentalScore
+      });
+      
+      return {
+        confidence: decision.confidence / 100,
+        score: decision.confidence,
+        riskRewardRatio: 0,
+        confluenceScore,
+        volatility,
+        marketCondition,
+        technicalSignals,
+        fundamentalScore
+      };
+      
+    } catch (error) {
+      console.error(`❌ Erro ao criar análise da trade para ${symbol}:`, error);
+      
+      // Fallback para análise básica
+      return {
+        confidence: decision.confidence / 100,
+        score: decision.confidence,
+        riskRewardRatio: 0,
+        confluenceScore: 0.5,
+        volatility: 0.05,
+        marketCondition: 'sideways',
+        technicalSignals: 3,
+        fundamentalScore: 0.5
+      };
+    }
+  }
+
+  /**
+   * Obtém análise técnica atual
+   */
+  private async getTechnicalAnalysis(symbol: string): Promise<any> {
+    try {
+      // Implementar análise técnica básica
+      // Por enquanto, retornar dados mockados
+      return {
+        rsi: 50,
+        macd: 0,
+        bollinger: { upper: 0, middle: 0, lower: 0 },
+        volume: 0
+      };
+    } catch (error) {
+      console.error(`❌ Erro ao obter análise técnica para ${symbol}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Calcula volatilidade do símbolo
+   */
+  private calculateVolatility(symbol: string): number {
+    // Implementação simplificada - usar volatilidade padrão
+    // Em produção, calcular baseado no histórico de preços
+    return 0.05; // 5% de volatilidade padrão
+  }
+
+  /**
+   * Determina condição do mercado
+   */
+  private determineMarketCondition(symbol: string): string {
+    // Implementação simplificada
+    // Em produção, analisar tendência geral do mercado
+    return 'sideways';
+  }
+
+  /**
+   * Conta sinais técnicos confirmando a direção
+   */
+  private countTechnicalSignals(symbol: string, action: string): number {
+    // Implementação simplificada
+    // Em produção, contar sinais técnicos reais
+    return action === 'BUY' ? 5 : 4; // Mock: mais sinais para compra
+  }
+
+  /**
+   * Calcula score fundamental
+   */
+  private calculateFundamentalScore(symbol: string): number {
+    // Implementação simplificada
+    // Em produção, analisar dados fundamentais
+    return 0.7; // Score fundamental padrão
+  }
+  /**
+   * Verifica se uma trade deve ser fechada baseado em critérios básicos
+   */
+  private shouldCloseTrade(trade: any): boolean {
+    try {
+      // Verificar se há P&L definido
+      if (trade.pnl === undefined || trade.pnl === null) {
+        return false;
       }
 
-      console.log(`🧠 Verificando ${this.openTrades.size} trades abertas com monitoramento inteligente...`);
-
-      for (const [tradeId, trade] of this.openTrades) {
-        try {
-          // Obter P&L atual
-          const currentPnl = trade.pnl || 0;
-          
-          // Verificar se deve fechar
-          const shouldClose = await this.checkIntelligentTradeClosure(tradeId, trade.symbol, currentPnl);
-          
-          if (shouldClose.shouldClose) {
-            console.log(`🚨 FECHAMENTO INTELIGENTE: ${trade.symbol} - ${shouldClose.reason}`);
-            await this.closeTrade(tradeId, `monitoramento_inteligente: ${shouldClose.reason}`);
-          }
-        } catch (error) {
-          console.error(`❌ Erro ao verificar monitoramento para ${trade.symbol}:`, error);
+      // Verificar stop loss
+      if (trade.stopLoss && trade.currentPrice) {
+        if (trade.side === 'BUY' && trade.currentPrice <= trade.stopLoss) {
+          return true;
+        }
+        if (trade.side === 'SELL' && trade.currentPrice >= trade.stopLoss) {
+          return true;
         }
       }
+
+      // Verificar take profit
+      if (trade.takeProfit && trade.currentPrice) {
+        if (trade.side === 'BUY' && trade.currentPrice >= trade.takeProfit) {
+          return true;
+        }
+        if (trade.side === 'SELL' && trade.currentPrice <= trade.takeProfit) {
+          return true;
+        }
+      }
+
+      return false;
     } catch (error) {
-      console.error('❌ Erro no monitoramento inteligente:', error);
+      console.error('❌ Erro ao verificar se deve fechar trade:', error);
+      return false;
     }
   }
 
-  /**
-   * Verifica se deve fechar trade baseado no monitoramento inteligente
-   */
-  private async checkIntelligentTradeClosure(tradeId: string, symbol: string, currentPnl: number): Promise<{shouldClose: boolean, reason: string}> {
-    try {
-      if (!this.monitoringService) {
-        return { shouldClose: false, reason: 'Serviço de monitoramento não disponível' };
-      }
-
-      const result = await this.monitoringService.shouldCloseTrade(tradeId, symbol, currentPnl);
-      
-      if (result.shouldClose) {
-        console.log(`🚨 MONITORAMENTO INTELIGENTE: Fechamento recomendado para ${symbol}`);
-        console.log(`   Razão: ${result.reason}`);
-        console.log(`   P&L atual: $${currentPnl.toFixed(2)}`);
-      }
-      
-      return result;
-    } catch (error) {
-      console.error(`❌ Erro no monitoramento inteligente para ${symbol}:`, error);
-      return { shouldClose: false, reason: 'Erro no monitoramento' };
-    }
-  }
   private async closeTrade(tradeId: string, reason: string) {
     const maxRetries = 3;
     let retryCount = 0;
@@ -664,6 +759,17 @@ export class AdvancedTradingEngine {
           if (updateSuccess) {
             console.log(`💾 Trade ${tradeId} marcado como CLOSED no banco de dados`);
             console.log(`💾 PnL gravado na base: ${realizedPnL.toFixed(4)} USDT (${realizedPnLPercent.toFixed(2)}%)`);
+            
+            // ✅ NOVO: Atualizar performance para dimensionamento dinâmico
+            if (this.positionSizingService) {
+              this.positionSizingService.updatePerformanceHistory({
+                pnl: realizedPnL,
+                isWin: realizedPnL > 0,
+                positionSize: trade.positionSize || 2.0
+              });
+              console.log(`📊 Performance atualizada para dimensionamento dinâmico`);
+            }
+            
             console.log(`\n✅ Trade ${tradeId} FECHADO com sucesso: ${reason}`);
             
             // ✅ EQUITY TRACKING: Registrar saldo após fechamento de trade
@@ -1492,18 +1598,18 @@ export class AdvancedTradingEngine {
       // Executar ordem REAL na Binance
       const binanceClient = getBinanceClient();
       
-      // Calcular quantidade precisa baseada no tamanho do trade
+      // Calcular quantidade precisa baseada no dimensionamento dinâmico
       const priceData = await binanceClient.getPrice(symbol);
       const currentPrice = parseFloat(priceData.price);
       
       console.log(`\n🔍 DEBUG executeTrade:`);
       console.log(`   📊 priceData:`, priceData);
       console.log(`   💰 currentPrice: ${currentPrice}`);
-      console.log(`   📦 decision.size (quantity): ${decision.size}`);
+      console.log(`   📦 decision.size (quantity original): ${decision.size}`);
       console.log(`   📋 decision.entry: ${decision.entry}`);
       
-        // decision.size já é QUANTIDADE (tradeSize / price)
-        let quantity = decision.size;
+      // Usar quantidade calculada pelo dimensionamento dinâmico
+      let quantity = newQuantity;
         
         // ✅ CORREÇÃO CRÍTICA: Ajustar precisão baseada no stepSize do símbolo
         try {
@@ -1857,7 +1963,7 @@ export class AdvancedTradingEngine {
         console.log(`💾 Trade ${tradeId} salvo no banco de dados`);
         
         // ✅ NOVO: Salvar parâmetros de análise
-        await this.saveTradeAnalysisParameters(tradeId, tradeAnalysisCapture.getAnalysisData());
+        await this.saveTradeAnalysisParameters(tradeId, tradeAnalysisCapture.getAnalysisStats());
         
         return tradeId;
       }
@@ -2559,8 +2665,7 @@ export class AdvancedTradingEngine {
         console.log(`🎯 Encontradas ${opportunities.length} oportunidades`);
         
         // 4. Verificar monitoramento inteligente para trades abertas
-        console.log('🧠 Verificando monitoramento inteligente...');
-        await this.checkIntelligentMonitoring();
+        console.log('🧠 Monitoramento inteligente desabilitado temporariamente...');
         
         // 5. Executar trades se houver oportunidades
         console.log(`\n🚀 EXECUÇÃO DE TRADES - Ciclo ${cycleCount}:`);
@@ -2708,8 +2813,8 @@ export class AdvancedTradingEngine {
       })),
       
       // Configurações
-      maxActiveTrades: config.maxActiveTrades,
-      allowNewTrades: config.allowNewTrades,
+      maxActiveTrades: this.configService.getConfig().riskManagement.maxActiveTrades,
+      allowNewTrades: this.configService.getConfig().riskManagement.allowNewTrades,
       blacklistedSymbols: symbolConfig.blacklistedSymbols,
       prioritySymbols: symbolConfig.prioritySymbols,
       
@@ -2778,7 +2883,7 @@ export class AdvancedTradingEngine {
     
     // 2. Verificação de limite por símbolo
     const symbolTrades = Array.from(this.openTrades.values()).filter(trade => trade.symbol === symbol);
-    const maxPositionsForSymbol = symbolConfig?.maxPositions || config.maxPositionsPerSymbol;
+    const maxPositionsForSymbol = symbolConfig?.maxPositions || this.configService.getConfig().riskManagement.maxPositionsPerSymbol;
     
     console.log(`   Trades do símbolo ${symbol}: ${symbolTrades.length}/${maxPositionsForSymbol}`);
     

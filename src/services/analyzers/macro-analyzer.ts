@@ -57,7 +57,7 @@ export class MacroAnalyzer {
       // API sugerida: https://api.twelvedata.com/time_series?symbol=DXY
       return 103.5; // Placeholder
     } catch (error) {
-      console.warn('Erro ao buscar DXY:', error);
+      console.warn('Erro ao buscar DXY:', error as Error);
       return 103.5; // Neutro
     }
   }

@@ -125,7 +125,7 @@ export class HFTExecutor {
       return order.orderId?.toString() || null;
       
     } catch (error: any) {
-      console.error('❌ Erro ao colocar ordem HFT REAL:', error);
+      console.error('❌ Erro ao colocar ordem HFT REAL:', error as Error);
       console.error('   Detalhes:', error.response?.data || error.message);
       return null;
     }
@@ -150,7 +150,7 @@ export class HFTExecutor {
       
       return order.orderId?.toString() || null;
     } catch (error) {
-      console.error('Erro ao executar ordem:', error);
+      console.error('Erro ao executar ordem:', error as Error);
       return null;
     }
   }

@@ -80,7 +80,7 @@ export class SentimentAnalyzer {
       return 2;                         // Extreme Greed
       
     } catch (error) {
-      console.warn('Erro ao buscar Fear & Greed Index:', error);
+      console.warn('Erro ao buscar Fear & Greed Index:', error as Error);
       return 0; // Neutro como fallback
     }
   }

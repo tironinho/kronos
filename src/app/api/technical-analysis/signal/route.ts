@@ -167,7 +167,7 @@ export async function GET(request: NextRequest) {
         }, { status: 400 });
     }
   } catch (error) {
-    logger.error('API: Error in technical analysis request', 'API', null, error);
+    logger.error('API: Error in technical analysis request', 'API', null, error as Error);
     return NextResponse.json({
       success: false,
       error: 'Failed to process technical analysis request'
@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
       });
     }
   } catch (error) {
-    logger.error('API: Error in POST technical analysis request', 'API', null, error);
+    logger.error('API: Error in POST technical analysis request', 'API', null, error as Error);
     return NextResponse.json({
       success: false,
       error: 'Failed to process POST technical analysis request'
@@ -248,7 +248,7 @@ export async function DELETE(request: NextRequest) {
       message: 'Technical analysis cache cleared successfully'
     });
   } catch (error) {
-    logger.error('API: Error clearing technical analysis cache', 'API', null, error);
+    logger.error('API: Error clearing technical analysis cache', 'API', null, error as Error);
     return NextResponse.json({
       success: false,
       error: 'Failed to clear technical analysis cache'

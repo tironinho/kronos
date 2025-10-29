@@ -16,7 +16,7 @@ try {
     console.warn('⚠️ Supabase não configurado - variáveis de ambiente não encontradas');
   }
 } catch (error) {
-  console.error('❌ Erro ao inicializar Supabase:', error);
+  console.error('❌ Erro ao inicializar Supabase:', error as Error);
 }
 
 export { supabase };

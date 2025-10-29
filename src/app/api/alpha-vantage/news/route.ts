@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
         }, { status: 400 });
     }
   } catch (error) {
-    logger.error('API: Error in Alpha Vantage news request', 'API', null, error);
+    logger.error('API: Error in Alpha Vantage news request', 'API', null, error as Error);
     return NextResponse.json({
       success: false,
       error: 'Failed to process Alpha Vantage news request'

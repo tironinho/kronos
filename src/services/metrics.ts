@@ -462,7 +462,7 @@ export class Metrics extends EventEmitter {
       if (data.system_health) this.systemHealth = data.system_health;
       this.emit('metrics_imported');
     } catch (error) {
-      console.error('Erro ao importar métricas:', error);
+      console.error('Erro ao importar métricas:', error as Error);
     }
   }
 }

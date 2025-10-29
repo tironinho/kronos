@@ -22,8 +22,8 @@ export async function GET(request: NextRequest) {
           level,
           component,
           action: actionFilter,
-          userId,
-          sessionId,
+          userId: userId || undefined,
+          sessionId: sessionId || undefined,
           startDate,
           endDate,
           limit,
@@ -46,8 +46,8 @@ export async function GET(request: NextRequest) {
         const auditEndDate = searchParams.get('endDate') ? new Date(searchParams.get('endDate')!) : undefined;
 
         const auditEvents = AuditLoggingService.getAuditEvents({
-          userId: auditUserId,
-          sessionId: auditSessionId,
+          userId: auditUserId || undefined,
+          sessionId: auditSessionId || undefined,
           action: auditAction,
           resource,
           success,
@@ -220,7 +220,7 @@ export async function POST(request: NextRequest) {
         const {
           action: riskAction,
           riskLevel,
-          details,
+          details: riskDetails,
           userId: riskUserId,
           sessionId: riskSessionId
         } = body;
@@ -228,7 +228,7 @@ export async function POST(request: NextRequest) {
         AuditLoggingService.logRiskAction(
           riskAction,
           riskLevel,
-          details,
+          riskDetails,
           riskUserId,
           riskSessionId
         );
@@ -266,14 +266,14 @@ export async function POST(request: NextRequest) {
         const {
           component: systemComponent,
           event,
-          details,
+          details: systemDetails,
           level: systemLevel = 'info'
         } = body;
 
         AuditLoggingService.logSystemEvent(
           systemComponent,
           event,
-          details,
+          systemDetails,
           systemLevel
         );
 

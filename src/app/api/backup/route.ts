@@ -92,8 +92,8 @@ export async function POST(request: NextRequest) {
 
       case 'create-backup':
         const { configId: backupConfigId } = body;
-        const config = BackupRecoveryService.getConfigs().find(c => c.id === backupConfigId);
-        if (!config) {
+        const backupConfig = BackupRecoveryService.getConfigs().find(c => c.id === backupConfigId);
+        if (!backupConfig) {
           return NextResponse.json({
             success: false,
             error: 'Configuração não encontrada'

@@ -176,9 +176,9 @@ export class WebSocketManager extends EventEmitter {
     });
 
     this.ws.on('error', (error: Error) => {
-      this.logger.error(SystemAction.ErrorHandling, 'Erro no WebSocket', error);
+      this.logger.error(SystemAction.ErrorHandling, 'Erro no WebSocket', error as Error);
       this.stats.errors++;
-      this.emit('error', error);
+      this.emit('error', error as Error);
     });
 
     this.ws.on('pong', () => {
@@ -610,7 +610,7 @@ export class WebSocketManager extends EventEmitter {
     });
 
     userDataWs.on('error', (error: Error) => {
-      this.logger.error(SystemAction.ErrorHandling, 'Erro no user data stream', error);
+      this.logger.error(SystemAction.ErrorHandling, 'Erro no user data stream', error as Error);
     });
 
     this.logger.info(SystemAction.DataProcessing, 'Subscrito a user data stream', { listenKey });
@@ -716,7 +716,7 @@ export class WebSocketServer extends EventEmitter {
         });
 
         ws.on('error', (error: Error) => {
-          this.logger.error(SystemAction.ErrorHandling, 'Erro no cliente WebSocket', error);
+          this.logger.error(SystemAction.ErrorHandling, 'Erro no cliente WebSocket', error as Error);
           this.clients.delete(ws);
         });
       });
@@ -862,7 +862,7 @@ export async function startWebSocketSystem(): Promise<void> {
     console.log('Sistema WebSocket iniciado com sucesso');
     
   } catch (error) {
-    console.error('Erro ao iniciar sistema WebSocket:', error);
+    console.error('Erro ao iniciar sistema WebSocket:', error as Error);
     throw error;
   }
 }
@@ -881,7 +881,7 @@ export function stopWebSocketSystem(): void {
     console.log('Sistema WebSocket parado');
     
   } catch (error) {
-    console.error('Erro ao parar sistema WebSocket:', error);
+    console.error('Erro ao parar sistema WebSocket:', error as Error);
   }
 }
 

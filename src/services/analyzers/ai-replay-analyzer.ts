@@ -102,7 +102,7 @@ Analise:
 
       if (!response.ok) {
         const error = await response.json();
-        console.error('❌ Erro na API OpenAI:', error);
+        console.error('❌ Erro na API OpenAI:', error as Error);
         return null;
       }
 
@@ -213,7 +213,7 @@ IMPORTANTE: NUNCA sugira abrir novas trades, apenas analise esta trade executada
         };
       }
     } catch (error) {
-      console.error('❌ Erro ao parsear resposta da IA:', error);
+      console.error('❌ Erro ao parsear resposta da IA:', error as Error);
     }
 
     // Fallback
@@ -298,7 +298,7 @@ Mantenha resposta objetiva e focada em melhorias.
         return data.choices[0]?.message?.content || 'Análise não disponível';
       }
     } catch (error) {
-      console.error('Erro ao gerar relatório:', error);
+      console.error('Erro ao gerar relatório:', error as Error);
     }
 
     return 'Erro ao gerar relatório de performance';

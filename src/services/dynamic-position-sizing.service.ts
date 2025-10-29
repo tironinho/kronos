@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { TradingConfigurationService } from './trading-configuration-service';
-import { EquityMonitoringService } from './equity-monitoring-service';
+import { Logger } from './logger';
+import TradingConfigurationService from './trading-configuration-service';
+import EquityMonitoringService from './equity-monitoring-service';
 
 export interface PositionSizingConfig {
   basePositionSize: number;        // % base do capital (ex: 2%)
@@ -32,9 +32,8 @@ export interface PositionSizingResult {
   riskRewardRatio: number;       // Razão risco-recompensa final
 }
 
-@Injectable()
 export class DynamicPositionSizingService {
-  private readonly logger = new Logger(DynamicPositionSizingService.name);
+  private readonly logger = Logger.getInstance();
   
   private config: PositionSizingConfig;
   private configService: TradingConfigurationService;

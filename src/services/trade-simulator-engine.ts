@@ -127,7 +127,7 @@ export class TradeSimulatorEngine {
         
         console.log(`📊 ${symbol}: $${realPrice.toFixed(2)} → $${state.price.toFixed(2)} (${variation >= 0 ? '+' : ''}${(variation * 100).toFixed(2)}%)`);
       } catch (error) {
-        console.error(`Erro ao buscar preço de ${symbol}:`, error);
+        console.error(`Erro ao buscar preço de ${symbol}:`, error as Error);
       }
     }
   }
@@ -154,7 +154,7 @@ export class TradeSimulatorEngine {
         }
       } catch (error) {
         // Ignora erros do Supabase
-        console.debug(`ℹ️ Supabase não configurado (ignorando...):`, error);
+        console.debug(`ℹ️ Supabase não configurado (ignorando...):`, error as Error);
       }
 
       // Calcula quanto equity está livre (não alocado em trades abertos)
@@ -254,7 +254,7 @@ export class TradeSimulatorEngine {
         takeProfit: tp
       };
     } catch (error) {
-      console.error(`Erro ao gerar sinal para ${symbol}:`, error);
+      console.error(`Erro ao gerar sinal para ${symbol}:`, error as Error);
       return { shouldTrade: false };
     }
   }
@@ -313,7 +313,7 @@ export class TradeSimulatorEngine {
       }
     } catch (error) {
       // Ignora erros do Supabase se não estiver configurado
-      console.debug(`ℹ️ Supabase não configurado ou indisponível (ignorando...):`, error);
+      console.debug(`ℹ️ Supabase não configurado ou indisponível (ignorando...):`, error as Error);
     }
   }
 
@@ -370,7 +370,7 @@ export class TradeSimulatorEngine {
             console.log(`💾 Trade fechado salvo no banco: ${position.id}`);
           }
         } catch (error) {
-          console.debug(`⚠️ Erro ao salvar trade fechado no Supabase:`, error);
+          console.debug(`⚠️ Erro ao salvar trade fechado no Supabase:`, error as Error);
         }
       }
     }

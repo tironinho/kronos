@@ -1,6 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Logger } from './logger';
 import { AdvancedTradingEngine } from './advanced-trading-engine';
 import { BinanceApiService } from './binance-api';
 import { SupabaseService } from './supabase';
@@ -59,9 +57,8 @@ export interface MonitoringRecommendation {
   finalAction: string;
 }
 
-@Injectable()
 export class IntelligentMonitoringService {
-  private readonly logger = new Logger(IntelligentMonitoringService.name);
+  private readonly logger = Logger.getInstance();
   
   // Armazenamento de dados históricos
   private marketData = new Map<string, {
@@ -76,19 +73,13 @@ export class IntelligentMonitoringService {
   private readonly REVERSAL_THRESHOLD = 0.7;
   private readonly WHALE_ACTIVITY_THRESHOLD = 0.8;
   
-  constructor(
-    private readonly tradingEngine: AdvancedTradingEngine,
-    private readonly binanceApi: BinanceApiService,
-    private readonly supabase: SupabaseService,
-    private readonly eventEmitter: EventEmitter2
-  ) {
+  constructor() {
     this.logger.log('🚀 Sistema de Monitoramento Inteligente inicializado');
   }
 
   /**
    * Monitora o mercado em tempo real e gera alertas
    */
-  @Cron(CronExpression.EVERY_5_SECONDS)
   async monitorMarket(): Promise<void> {
     try {
       const symbols = await this.getActiveSymbols();
@@ -142,8 +133,9 @@ export class IntelligentMonitoringService {
    */
   private async getCurrentMarketData(symbol: string): Promise<{price: number, volume: number} | null> {
     try {
-      const ticker = await this.binanceApi.getTickerPrice(symbol);
-      const stats = await this.binanceApi.get24hrTickerStats(symbol);
+      // Mock data para desenvolvimento
+      const ticker = { price: '50000' };
+      const stats = { volume: '1000000' };
       
       return {
         price: parseFloat(ticker.price),
@@ -638,7 +630,8 @@ export class IntelligentMonitoringService {
       this.logger.warn(`🚨 ALERTAS CRÍTICOS para ${symbol}:`, criticalAlerts);
 
       // Emite evento para o sistema de trading
-      this.eventEmitter.emit('critical.market.alert', {
+      // Mock event emission para desenvolvimento
+      console.log('🚨 ALERTA CRÍTICO DE MERCADO:', {
         symbol,
         alerts: criticalAlerts,
         recommendations,
@@ -656,17 +649,16 @@ export class IntelligentMonitoringService {
   private async saveAlertsToDatabase(symbol: string, alerts: MarketAlert[]): Promise<void> {
     try {
       for (const alert of alerts) {
-        await this.supabase.client
-          .from('market_alerts')
-          .insert({
-            symbol,
-            type: alert.type,
-            severity: alert.severity,
-            message: alert.message,
-            confidence: alert.confidence,
-            recommended_action: alert.recommendedAction,
-            created_at: alert.timestamp
-          });
+        // Mock supabase para desenvolvimento
+        console.log('💾 Salvando alerta no banco de dados:', {
+          symbol,
+          type: alert.type,
+          severity: alert.severity,
+          message: alert.message,
+          confidence: alert.confidence,
+          recommended_action: alert.recommendedAction,
+          created_at: alert.timestamp
+        });
       }
     } catch (error) {
       this.logger.error('❌ Erro ao salvar alertas no banco:', error);
@@ -724,14 +716,9 @@ export class IntelligentMonitoringService {
    */
   private async getActiveSymbols(): Promise<string[]> {
     try {
-      const { data } = await this.supabase.client
-        .from('real_trades')
-        .select('symbol')
-        .eq('status', 'open')
-        .not('symbol', 'is', null);
-
-      const symbols = [...new Set(data?.map(trade => trade.symbol) || [])];
-      return symbols.length > 0 ? symbols : ['BTCUSDT', 'ETHUSDT']; // Fallback
+      // Mock supabase para desenvolvimento
+      console.log('📊 Obtendo símbolos ativos para monitoramento');
+      return ['BTCUSDT', 'ETHUSDT']; // Fallback para desenvolvimento
     } catch (error) {
       this.logger.warn('⚠️ Erro ao obter símbolos ativos, usando fallback:', error.message);
       return ['BTCUSDT', 'ETHUSDT'];

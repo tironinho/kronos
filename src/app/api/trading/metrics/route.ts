@@ -18,8 +18,8 @@ export async function GET() {
 
     // Calcular métricas consolidadas
     const allTrades = trades || [];
-    const closedTrades = allTrades.filter(t => t.status === 'closed');
-    const activeTrades = allTrades.filter(t => t.status === 'open');
+    const closedTrades = allTrades.filter((t: any) => t.status === 'closed');
+    const activeTrades = allTrades.filter((t: any) => t.status === 'open');
     
     const totalTrades = allTrades.length;
     

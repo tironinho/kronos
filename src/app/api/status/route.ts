@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
     const status = {
       status: 'running',
       engine: 'active',
-      trading: 'enabled',
+      trading_status: 'enabled',
       timestamp: Date.now(),
       version: '2.0.0',
       environment: config.getEngineConfig().env,

@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error) {
-    logger.error('API: Error in Alpha Vantage stats request', 'API', null, error);
+    logger.error('API: Error in Alpha Vantage stats request', 'API', null, error as Error);
     return NextResponse.json({
       success: false,
       error: 'Failed to process Alpha Vantage stats request'
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       message: 'Rate limit reset successfully'
     });
   } catch (error) {
-    logger.error('API: Error in Alpha Vantage rate limit reset', 'API', null, error);
+    logger.error('API: Error in Alpha Vantage rate limit reset', 'API', null, error as Error);
     return NextResponse.json({
       success: false,
       error: 'Failed to reset Alpha Vantage rate limit'

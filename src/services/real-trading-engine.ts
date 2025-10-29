@@ -116,7 +116,7 @@ export class RealTradingEngine {
       // Inicia loop de trading
       await this.startTradingLoop();
     } catch (error) {
-      console.error('Erro ao iniciar Real Trading:', error);
+      console.error('Erro ao iniciar Real Trading:', error as Error);
       this.isRunning = false;
       throw error;
     }
@@ -190,7 +190,7 @@ export class RealTradingEngine {
         // Aguarda próxima iteração
         await new Promise(resolve => setTimeout(resolve, 5000)); // 5 segundos
       } catch (error) {
-        console.error('Erro no loop de trading:', error);
+        console.error('Erro no loop de trading:', error as Error);
         await new Promise(resolve => setTimeout(resolve, 10000)); // Aguarda mais tempo em erro
       }
     }
@@ -224,7 +224,7 @@ export class RealTradingEngine {
         // Atualiza no banco
         await this.updateTradeInDB(trade);
       } catch (error) {
-        console.error(`Erro ao processar trade ${id}:`, error);
+        console.error(`Erro ao processar trade ${id}:`, error as Error);
       }
     }
   }
@@ -315,7 +315,7 @@ export class RealTradingEngine {
       
       return trade;
     } catch (error) {
-      console.error('Erro ao executar trade:', error);
+      console.error('Erro ao executar trade:', error as Error);
       throw error;
     }
   }
@@ -366,7 +366,7 @@ export class RealTradingEngine {
         });
       }
     } catch (error) {
-      console.error('Erro ao salvar trade no banco:', error);
+      console.error('Erro ao salvar trade no banco:', error as Error);
     }
   }
 
@@ -389,7 +389,7 @@ export class RealTradingEngine {
           .eq('trade_id', trade.id);
       }
     } catch (error) {
-      console.error('Erro ao atualizar trade no banco:', error);
+      console.error('Erro ao atualizar trade no banco:', error as Error);
     }
   }
 
@@ -426,7 +426,7 @@ export class RealTradingEngine {
       const ticker = await this.binanceClient.get24hrTicker(symbol);
       return parseFloat(ticker.last_price || '0');
     } catch (error) {
-      console.error(`Erro ao buscar preço de ${symbol}:`, error);
+      console.error(`Erro ao buscar preço de ${symbol}:`, error as Error);
       return 0;
     }
   }
@@ -440,7 +440,7 @@ export class RealTradingEngine {
       const usdtBalance = accountInfo.balances.find((bal: any) => bal.asset === 'USDT');
       return usdtBalance ? parseFloat(usdtBalance.free) : 0;
     } catch (error) {
-      console.error('Erro ao buscar capital disponível:', error);
+      console.error('Erro ao buscar capital disponível:', error as Error);
       return 0;
     }
   }

@@ -41,14 +41,14 @@ export async function saveAIAnalysis(analysis: Omit<TradeAIAnalysis, 'id' | 'ana
       .single();
 
     if (error) {
-      console.error('❌ Erro ao salvar análise:', error);
+      console.error('❌ Erro ao salvar análise:', error as Error);
       return null;
     }
 
     console.log('✅ Análise de IA salva:', data.id);
     return data;
   } catch (error) {
-    console.error('❌ Erro ao salvar análise:', error);
+    console.error('❌ Erro ao salvar análise:', error as Error);
     return null;
   }
 }
@@ -73,13 +73,13 @@ export async function getAIAnalyses(tradeId?: string, limit = 50) {
     const { data, error } = await query;
 
     if (error) {
-      console.error('❌ Erro ao buscar análises:', error);
+      console.error('❌ Erro ao buscar análises:', error as Error);
       return [];
     }
 
     return data || [];
   } catch (error) {
-    console.error('❌ Erro ao buscar análises:', error);
+    console.error('❌ Erro ao buscar análises:', error as Error);
     return [];
   }
 }

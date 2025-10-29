@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
       SystemAction.ErrorHandling,
       'Erro na API de logs',
       error as Error,
-      { endpoint: url.pathname }
+      { endpoint: request.url }
     );
 
     return NextResponse.json(
@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
       SystemAction.ErrorHandling,
       'Erro na API de logs (POST)',
       error as Error,
-      { endpoint: url.pathname }
+      { endpoint: request.url }
     );
 
     return NextResponse.json(
