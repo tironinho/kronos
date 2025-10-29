@@ -27,7 +27,7 @@ import TechnicalAnalysisService from './technical-analysis-service';
 import TradingConfigurationService from './trading-configuration-service';
 import CacheService from './cache-service';
 import EquityMonitoringService from './equity-monitoring-service';
-import { IntelligentMonitoringService } from './intelligent-monitoring.service';
+import { DynamicPositionSizingService } from './dynamic-position-sizing.service';
 
 interface TradeDecision {
   action: 'BUY' | 'SELL' | 'HOLD';
@@ -49,6 +49,7 @@ export class AdvancedTradingEngine {
   private drawdownStopTriggered = false; // Stop global 20%
   private configService = TradingConfigurationService.getInstance();
   private monitoringService: IntelligentMonitoringService;
+  private positionSizingService: DynamicPositionSizingService;
   private cacheService = CacheService.getInstance();
   private equityService = EquityMonitoringService.getInstance(); // ✅ Configuração do sistema
   
@@ -116,6 +117,7 @@ export class AdvancedTradingEngine {
   }
   private constructor() {
     this.monitoringService = new IntelligentMonitoringService();
+    this.positionSizingService = new DynamicPositionSizingService();
   }
   
   public static getInstance(): AdvancedTradingEngine {
@@ -1449,12 +1451,12 @@ export class AdvancedTradingEngine {
   }
   
   /**
-   * Executa trade REAL na Binance
+   * Executa trade REAL na Binance com dimensionamento dinâmico
    */
   private async executeTrade(symbol: string, decision: TradeDecision) {
     console.log(`\n🎯 EXECUTANDO ${decision.action} ${symbol} COM DINHEIRO REAL...`);
     console.log(`   Confiança: ${decision.confidence}%`);
-    console.log(`   Tamanho: ${decision.size.toFixed(4)}`);
+    console.log(`   Tamanho original: ${decision.size.toFixed(4)}`);
     console.log(`   Entrada: $${decision.entry.toFixed(2)}`);
     console.log(`   Stop Loss: $${decision.stopLoss.toFixed(2)}`);
     console.log(`   Take Profit: $${decision.takeProfit.toFixed(2)}`);
@@ -1464,6 +1466,29 @@ export class AdvancedTradingEngine {
       // ✅ NOVO: Salvar snapshot do equity antes da trade
       await this.equityService.saveEquitySnapshot(symbol);
       console.log(`📊 Snapshot do equity salvo para ${symbol}`);
+      
+      // ✅ NOVO: Calcular dimensionamento dinâmico da posição
+      const tradeAnalysis = await this.createTradeAnalysis(symbol, decision);
+      const positionSizing = await this.positionSizingService.calculatePositionSize(
+        symbol,
+        tradeAnalysis,
+        decision.entry,
+        decision.stopLoss,
+        decision.takeProfit
+      );
+      
+      console.log(`\n💰 DIMENSIONAMENTO DINÂMICO CALCULADO:`);
+      console.log(`   Tamanho da posição: ${positionSizing.positionSize.toFixed(2)}%`);
+      console.log(`   Valor da posição: $${positionSizing.positionValue.toFixed(2)}`);
+      console.log(`   Trade excepcional: ${positionSizing.isExceptional ? 'SIM' : 'NÃO'}`);
+      console.log(`   Razão: ${positionSizing.sizingReason}`);
+      console.log(`   Risco: $${positionSizing.riskAmount.toFixed(2)} | Recompensa: $${positionSizing.potentialReward.toFixed(2)}`);
+      console.log(`   R:R: ${positionSizing.riskRewardRatio.toFixed(2)}`);
+      
+      // Atualizar tamanho da trade com o dimensionamento dinâmico
+      const newQuantity = positionSizing.positionValue / decision.entry;
+      console.log(`   Quantidade ajustada: ${decision.size.toFixed(4)} → ${newQuantity.toFixed(4)}`);
+      
       // Executar ordem REAL na Binance
       const binanceClient = getBinanceClient();
       

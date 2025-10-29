@@ -14424,3 +14424,208 @@
 [2025-10-29T03:36:44.780Z] DEBUG    [ANALYSIS_CAPTURE] 📈 Market parameters captured for DOGEUSDT
 [2025-10-29T03:36:44.781Z] DEBUG    [ANALYSIS_CAPTURE] 🎯 Decision parameters captured for DOGEUSDT
 [2025-10-29T03:36:44.781Z] WARN     [ANALYSIS_CAPTURE] ⚠️ TradeAnalysisCapture: Supabase not available, skipping save
+[2025-10-29T03:36:47.193Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for ADAUSDT
+[2025-10-29T03:36:47.394Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for ADAUSDT
+[2025-10-29T03:36:47.395Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for ADAUSDT
+[2025-10-29T03:36:48.248Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for ADAUSDT
+[2025-10-29T03:36:49.879Z] DEBUG    [ANALYSIS_CAPTURE] 🛡️ Risk parameters captured for ADAUSDT
+[2025-10-29T03:36:49.880Z] DEBUG    [ANALYSIS_CAPTURE] 📈 Market parameters captured for ADAUSDT
+[2025-10-29T03:36:49.880Z] DEBUG    [ANALYSIS_CAPTURE] 🎯 Decision parameters captured for ADAUSDT
+[2025-10-29T03:36:49.881Z] WARN     [ANALYSIS_CAPTURE] ⚠️ TradeAnalysisCapture: Supabase not available, skipping save
+[2025-10-29T03:36:51.749Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for XRPUSDT
+[2025-10-29T03:36:51.824Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for XRPUSDT
+[2025-10-29T03:36:51.825Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for XRPUSDT
+[2025-10-29T03:36:52.672Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for XRPUSDT
+[2025-10-29T03:36:53.514Z] DEBUG    [ANALYSIS_CAPTURE] 🛡️ Risk parameters captured for XRPUSDT
+[2025-10-29T03:36:53.515Z] DEBUG    [ANALYSIS_CAPTURE] 📈 Market parameters captured for XRPUSDT
+[2025-10-29T03:36:53.515Z] DEBUG    [ANALYSIS_CAPTURE] 🎯 Decision parameters captured for XRPUSDT
+[2025-10-29T03:36:53.515Z] WARN     [ANALYSIS_CAPTURE] ⚠️ TradeAnalysisCapture: Supabase not available, skipping save
+[2025-10-29T03:36:55.375Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for AVAXUSDT
+[2025-10-29T03:36:55.466Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for AVAXUSDT
+[2025-10-29T03:36:55.467Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for AVAXUSDT
+[2025-10-29T03:36:56.295Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for AVAXUSDT
+[2025-10-29T03:36:59.093Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for MATICUSDT
+[2025-10-29T03:36:59.473Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for MATICUSDT
+[2025-10-29T03:36:59.473Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for MATICUSDT
+[2025-10-29T03:37:00.305Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for MATICUSDT
+[2025-10-29T03:37:01.161Z] DEBUG    [ANALYSIS_CAPTURE] 🛡️ Risk parameters captured for MATICUSDT
+[2025-10-29T03:37:01.161Z] DEBUG    [ANALYSIS_CAPTURE] 📈 Market parameters captured for MATICUSDT
+[2025-10-29T03:37:01.162Z] DEBUG    [ANALYSIS_CAPTURE] 🎯 Decision parameters captured for MATICUSDT
+[2025-10-29T03:37:01.162Z] WARN     [ANALYSIS_CAPTURE] ⚠️ TradeAnalysisCapture: Supabase not available, skipping save
+[2025-10-29T03:37:03.037Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for DOTUSDT
+[2025-10-29T03:37:03.124Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for DOTUSDT
+[2025-10-29T03:37:03.124Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for DOTUSDT
+[2025-10-29T03:37:03.671Z] WARN     [ANALYSIS_CAPTURE] ⚠️ Analysis warning recorded: Apenas 1 confirmações (necessário 2+)
+[2025-10-29T03:37:03.671Z] WARN     [ANALYSIS_CAPTURE] ⚠️ TradeAnalysisCapture: Supabase not available, skipping save
+[2025-10-29T03:37:05.529Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for LINKUSDT
+[2025-10-29T03:37:05.613Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for LINKUSDT
+[2025-10-29T03:37:05.615Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for LINKUSDT
+[2025-10-29T03:37:06.434Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for LINKUSDT
+[2025-10-29T03:37:07.285Z] DEBUG    [ANALYSIS_CAPTURE] 🛡️ Risk parameters captured for LINKUSDT
+[2025-10-29T03:37:07.285Z] DEBUG    [ANALYSIS_CAPTURE] 📈 Market parameters captured for LINKUSDT
+[2025-10-29T03:37:07.286Z] DEBUG    [ANALYSIS_CAPTURE] 🎯 Decision parameters captured for LINKUSDT
+[2025-10-29T03:37:07.286Z] WARN     [ANALYSIS_CAPTURE] ⚠️ TradeAnalysisCapture: Supabase not available, skipping save
+[2025-10-29T03:37:10.257Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for UNIUSDT
+[2025-10-29T03:37:10.319Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for UNIUSDT
+[2025-10-29T03:37:10.320Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for UNIUSDT
+[2025-10-29T03:37:10.872Z] WARN     [ANALYSIS_CAPTURE] ⚠️ Analysis warning recorded: Apenas 1 confirmações (necessário 2+)
+[2025-10-29T03:37:10.874Z] WARN     [ANALYSIS_CAPTURE] ⚠️ TradeAnalysisCapture: Supabase not available, skipping save
+[2025-10-29T03:37:12.750Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for ATOMUSDT
+[2025-10-29T03:37:12.828Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for ATOMUSDT
+[2025-10-29T03:37:12.828Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for ATOMUSDT
+[2025-10-29T03:37:13.665Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for ATOMUSDT
+[2025-10-29T03:37:14.513Z] DEBUG    [ANALYSIS_CAPTURE] 🛡️ Risk parameters captured for ATOMUSDT
+[2025-10-29T03:37:14.514Z] DEBUG    [ANALYSIS_CAPTURE] 📈 Market parameters captured for ATOMUSDT
+[2025-10-29T03:37:14.514Z] DEBUG    [ANALYSIS_CAPTURE] 🎯 Decision parameters captured for ATOMUSDT
+[2025-10-29T03:37:14.515Z] WARN     [ANALYSIS_CAPTURE] ⚠️ TradeAnalysisCapture: Supabase not available, skipping save
+[2025-10-29T03:37:16.738Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for NEARUSDT
+[2025-10-29T03:37:16.863Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for NEARUSDT
+[2025-10-29T03:37:16.863Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for NEARUSDT
+[2025-10-29T03:37:17.698Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for NEARUSDT
+[2025-10-29T03:37:18.544Z] DEBUG    [ANALYSIS_CAPTURE] 🛡️ Risk parameters captured for NEARUSDT
+[2025-10-29T03:37:18.544Z] DEBUG    [ANALYSIS_CAPTURE] 📈 Market parameters captured for NEARUSDT
+[2025-10-29T03:37:18.544Z] DEBUG    [ANALYSIS_CAPTURE] 🎯 Decision parameters captured for NEARUSDT
+[2025-10-29T03:37:18.545Z] WARN     [ANALYSIS_CAPTURE] ⚠️ TradeAnalysisCapture: Supabase not available, skipping save
+[2025-10-29T03:37:20.701Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for FTMUSDT
+[2025-10-29T03:37:20.781Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for FTMUSDT
+[2025-10-29T03:37:20.782Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for FTMUSDT
+[2025-10-29T03:38:23.663Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for BTCUSDT
+[2025-10-29T03:38:23.703Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for BTCUSDT
+[2025-10-29T03:38:23.703Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for BTCUSDT
+[2025-10-29T03:38:24.531Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for BTCUSDT
+[2025-10-29T03:38:27.232Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for ETHUSDT
+[2025-10-29T03:38:27.280Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for ETHUSDT
+[2025-10-29T03:38:27.280Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for ETHUSDT
+[2025-10-29T03:38:28.111Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for ETHUSDT
+[2025-10-29T03:38:30.908Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for BNBUSDT
+[2025-10-29T03:38:30.956Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for BNBUSDT
+[2025-10-29T03:38:30.957Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for BNBUSDT
+[2025-10-29T03:38:31.797Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for BNBUSDT
+[2025-10-29T03:38:34.604Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for SOLUSDT
+[2025-10-29T03:38:34.957Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for SOLUSDT
+[2025-10-29T03:38:34.958Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for SOLUSDT
+[2025-10-29T03:38:35.794Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for SOLUSDT
+[2025-10-29T03:38:36.650Z] DEBUG    [ANALYSIS_CAPTURE] 🛡️ Risk parameters captured for SOLUSDT
+[2025-10-29T03:38:36.651Z] DEBUG    [ANALYSIS_CAPTURE] 📈 Market parameters captured for SOLUSDT
+[2025-10-29T03:38:36.651Z] DEBUG    [ANALYSIS_CAPTURE] 🎯 Decision parameters captured for SOLUSDT
+[2025-10-29T03:38:36.652Z] WARN     [ANALYSIS_CAPTURE] ⚠️ TradeAnalysisCapture: Supabase not available, skipping save
+[2025-10-29T03:38:38.544Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for DOGEUSDT
+[2025-10-29T03:38:38.873Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for DOGEUSDT
+[2025-10-29T03:38:38.874Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for DOGEUSDT
+[2025-10-29T03:38:39.707Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for DOGEUSDT
+[2025-10-29T03:38:40.560Z] DEBUG    [ANALYSIS_CAPTURE] 🛡️ Risk parameters captured for DOGEUSDT
+[2025-10-29T03:38:40.560Z] DEBUG    [ANALYSIS_CAPTURE] 📈 Market parameters captured for DOGEUSDT
+[2025-10-29T03:38:40.561Z] DEBUG    [ANALYSIS_CAPTURE] 🎯 Decision parameters captured for DOGEUSDT
+[2025-10-29T03:38:40.561Z] WARN     [ANALYSIS_CAPTURE] ⚠️ TradeAnalysisCapture: Supabase not available, skipping save
+[2025-10-29T03:38:42.489Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for ADAUSDT
+[2025-10-29T03:38:42.533Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for ADAUSDT
+[2025-10-29T03:38:42.533Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for ADAUSDT
+[2025-10-29T03:38:43.365Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for ADAUSDT
+[2025-10-29T03:38:44.277Z] DEBUG    [ANALYSIS_CAPTURE] 🛡️ Risk parameters captured for ADAUSDT
+[2025-10-29T03:38:44.278Z] DEBUG    [ANALYSIS_CAPTURE] 📈 Market parameters captured for ADAUSDT
+[2025-10-29T03:38:44.279Z] DEBUG    [ANALYSIS_CAPTURE] 🎯 Decision parameters captured for ADAUSDT
+[2025-10-29T03:38:44.280Z] WARN     [ANALYSIS_CAPTURE] ⚠️ TradeAnalysisCapture: Supabase not available, skipping save
+[2025-10-29T03:38:46.155Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for XRPUSDT
+[2025-10-29T03:38:46.206Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for XRPUSDT
+[2025-10-29T03:38:46.208Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for XRPUSDT
+[2025-10-29T03:38:47.039Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for XRPUSDT
+[2025-10-29T03:38:47.899Z] DEBUG    [ANALYSIS_CAPTURE] 🛡️ Risk parameters captured for XRPUSDT
+[2025-10-29T03:38:47.900Z] DEBUG    [ANALYSIS_CAPTURE] 📈 Market parameters captured for XRPUSDT
+[2025-10-29T03:38:47.900Z] DEBUG    [ANALYSIS_CAPTURE] 🎯 Decision parameters captured for XRPUSDT
+[2025-10-29T03:38:47.901Z] WARN     [ANALYSIS_CAPTURE] ⚠️ TradeAnalysisCapture: Supabase not available, skipping save
+[2025-10-29T03:38:49.857Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for AVAXUSDT
+[2025-10-29T03:38:49.901Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for AVAXUSDT
+[2025-10-29T03:38:49.902Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for AVAXUSDT
+[2025-10-29T03:38:50.738Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for AVAXUSDT
+[2025-10-29T03:38:53.711Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for MATICUSDT
+[2025-10-29T03:38:54.051Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for MATICUSDT
+[2025-10-29T03:38:54.053Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for MATICUSDT
+[2025-10-29T03:38:54.938Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for MATICUSDT
+[2025-10-29T03:38:55.812Z] DEBUG    [ANALYSIS_CAPTURE] 🛡️ Risk parameters captured for MATICUSDT
+[2025-10-29T03:38:55.813Z] DEBUG    [ANALYSIS_CAPTURE] 📈 Market parameters captured for MATICUSDT
+[2025-10-29T03:38:55.814Z] DEBUG    [ANALYSIS_CAPTURE] 🎯 Decision parameters captured for MATICUSDT
+[2025-10-29T03:38:55.814Z] WARN     [ANALYSIS_CAPTURE] ⚠️ TradeAnalysisCapture: Supabase not available, skipping save
+[2025-10-29T03:38:57.684Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for DOTUSDT
+[2025-10-29T03:38:57.729Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for DOTUSDT
+[2025-10-29T03:38:57.729Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for DOTUSDT
+[2025-10-29T03:38:58.281Z] WARN     [ANALYSIS_CAPTURE] ⚠️ Analysis warning recorded: Apenas 1 confirmações (necessário 2+)
+[2025-10-29T03:38:58.282Z] WARN     [ANALYSIS_CAPTURE] ⚠️ TradeAnalysisCapture: Supabase not available, skipping save
+[2025-10-29T03:39:00.139Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for LINKUSDT
+[2025-10-29T03:39:00.193Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for LINKUSDT
+[2025-10-29T03:39:00.195Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for LINKUSDT
+[2025-10-29T03:39:01.027Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for LINKUSDT
+[2025-10-29T03:39:01.914Z] DEBUG    [ANALYSIS_CAPTURE] 🛡️ Risk parameters captured for LINKUSDT
+[2025-10-29T03:39:01.914Z] DEBUG    [ANALYSIS_CAPTURE] 📈 Market parameters captured for LINKUSDT
+[2025-10-29T03:39:01.915Z] DEBUG    [ANALYSIS_CAPTURE] 🎯 Decision parameters captured for LINKUSDT
+[2025-10-29T03:39:01.915Z] WARN     [ANALYSIS_CAPTURE] ⚠️ TradeAnalysisCapture: Supabase not available, skipping save
+[2025-10-29T03:39:03.933Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for UNIUSDT
+[2025-10-29T03:39:03.980Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for UNIUSDT
+[2025-10-29T03:39:03.981Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for UNIUSDT
+[2025-10-29T03:39:04.813Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for UNIUSDT
+[2025-10-29T03:39:07.563Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for ATOMUSDT
+[2025-10-29T03:39:07.610Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for ATOMUSDT
+[2025-10-29T03:39:07.610Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for ATOMUSDT
+[2025-10-29T03:39:08.437Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for ATOMUSDT
+[2025-10-29T03:39:09.299Z] DEBUG    [ANALYSIS_CAPTURE] 🛡️ Risk parameters captured for ATOMUSDT
+[2025-10-29T03:39:09.301Z] DEBUG    [ANALYSIS_CAPTURE] 📈 Market parameters captured for ATOMUSDT
+[2025-10-29T03:39:09.302Z] DEBUG    [ANALYSIS_CAPTURE] 🎯 Decision parameters captured for ATOMUSDT
+[2025-10-29T03:39:09.302Z] WARN     [ANALYSIS_CAPTURE] ⚠️ TradeAnalysisCapture: Supabase not available, skipping save
+[2025-10-29T03:39:11.174Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for NEARUSDT
+[2025-10-29T03:39:11.223Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for NEARUSDT
+[2025-10-29T03:39:11.225Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for NEARUSDT
+[2025-10-29T03:39:12.059Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for NEARUSDT
+[2025-10-29T03:39:12.916Z] DEBUG    [ANALYSIS_CAPTURE] 🛡️ Risk parameters captured for NEARUSDT
+[2025-10-29T03:39:12.916Z] DEBUG    [ANALYSIS_CAPTURE] 📈 Market parameters captured for NEARUSDT
+[2025-10-29T03:39:12.916Z] DEBUG    [ANALYSIS_CAPTURE] 🎯 Decision parameters captured for NEARUSDT
+[2025-10-29T03:39:12.917Z] WARN     [ANALYSIS_CAPTURE] ⚠️ TradeAnalysisCapture: Supabase not available, skipping save
+[2025-10-29T03:39:14.962Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for FTMUSDT
+[2025-10-29T03:39:15.041Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for FTMUSDT
+[2025-10-29T03:39:15.042Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for FTMUSDT
+[2025-10-29T03:40:17.990Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for BTCUSDT
+[2025-10-29T03:40:18.064Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for BTCUSDT
+[2025-10-29T03:40:18.064Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for BTCUSDT
+[2025-10-29T03:40:18.901Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for BTCUSDT
+[2025-10-29T03:40:21.735Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for ETHUSDT
+[2025-10-29T03:40:21.810Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for ETHUSDT
+[2025-10-29T03:40:21.811Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for ETHUSDT
+[2025-10-29T03:40:22.644Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for ETHUSDT
+[2025-10-29T03:40:26.062Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for BNBUSDT
+[2025-10-29T03:40:26.105Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for BNBUSDT
+[2025-10-29T03:40:26.106Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for BNBUSDT
+[2025-10-29T03:40:27.952Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for BNBUSDT
+[2025-10-29T03:40:31.853Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for SOLUSDT
+[2025-10-29T03:40:32.216Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for SOLUSDT
+[2025-10-29T03:40:32.217Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for SOLUSDT
+[2025-10-29T03:40:33.052Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for SOLUSDT
+[2025-10-29T03:40:34.407Z] DEBUG    [ANALYSIS_CAPTURE] 🛡️ Risk parameters captured for SOLUSDT
+[2025-10-29T03:40:34.407Z] DEBUG    [ANALYSIS_CAPTURE] 📈 Market parameters captured for SOLUSDT
+[2025-10-29T03:40:34.408Z] DEBUG    [ANALYSIS_CAPTURE] 🎯 Decision parameters captured for SOLUSDT
+[2025-10-29T03:40:34.408Z] WARN     [ANALYSIS_CAPTURE] ⚠️ TradeAnalysisCapture: Supabase not available, skipping save
+[2025-10-29T03:40:38.436Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for DOGEUSDT
+[2025-10-29T03:40:38.799Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for DOGEUSDT
+[2025-10-29T03:40:38.799Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for DOGEUSDT
+[2025-10-29T03:40:39.626Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for DOGEUSDT
+[2025-10-29T03:40:41.267Z] DEBUG    [ANALYSIS_CAPTURE] 🛡️ Risk parameters captured for DOGEUSDT
+[2025-10-29T03:40:41.268Z] DEBUG    [ANALYSIS_CAPTURE] 📈 Market parameters captured for DOGEUSDT
+[2025-10-29T03:40:41.268Z] DEBUG    [ANALYSIS_CAPTURE] 🎯 Decision parameters captured for DOGEUSDT
+[2025-10-29T03:40:41.268Z] WARN     [ANALYSIS_CAPTURE] ⚠️ TradeAnalysisCapture: Supabase not available, skipping save
+[2025-10-29T03:40:44.144Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for ADAUSDT
+[2025-10-29T03:40:44.187Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for ADAUSDT
+[2025-10-29T03:40:44.187Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for ADAUSDT
+[2025-10-29T03:40:45.020Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for ADAUSDT
+[2025-10-29T03:40:45.875Z] DEBUG    [ANALYSIS_CAPTURE] 🛡️ Risk parameters captured for ADAUSDT
+[2025-10-29T03:40:45.875Z] DEBUG    [ANALYSIS_CAPTURE] 📈 Market parameters captured for ADAUSDT
+[2025-10-29T03:40:45.876Z] DEBUG    [ANALYSIS_CAPTURE] 🎯 Decision parameters captured for ADAUSDT
+[2025-10-29T03:40:45.876Z] WARN     [ANALYSIS_CAPTURE] ⚠️ TradeAnalysisCapture: Supabase not available, skipping save
+[2025-10-29T03:40:47.855Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for XRPUSDT
+[2025-10-29T03:40:47.894Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for XRPUSDT
+[2025-10-29T03:40:47.895Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for XRPUSDT
+[2025-10-29T03:40:48.721Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for XRPUSDT
+[2025-10-29T03:40:49.606Z] DEBUG    [ANALYSIS_CAPTURE] 🛡️ Risk parameters captured for XRPUSDT
+[2025-10-29T03:40:49.606Z] DEBUG    [ANALYSIS_CAPTURE] 📈 Market parameters captured for XRPUSDT
+[2025-10-29T03:40:49.606Z] DEBUG    [ANALYSIS_CAPTURE] 🎯 Decision parameters captured for XRPUSDT
+[2025-10-29T03:40:49.607Z] WARN     [ANALYSIS_CAPTURE] ⚠️ TradeAnalysisCapture: Supabase not available, skipping save
+[2025-10-29T03:40:51.468Z] DEBUG    [ANALYSIS_CAPTURE] 🔍 Starting analysis capture for AVAXUSDT
+[2025-10-29T03:40:51.509Z] DEBUG    [ANALYSIS_CAPTURE] 📊 Technical analysis captured for AVAXUSDT
+[2025-10-29T03:40:51.510Z] DEBUG    [ANALYSIS_CAPTURE] 🧠 Predictive V2 analysis captured for AVAXUSDT
+[2025-10-29T03:40:52.336Z] DEBUG    [ANALYSIS_CAPTURE] ⚡ HFT analysis captured for AVAXUSDT
