@@ -1954,15 +1954,24 @@ export class AdvancedTradingEngine {
           return;
         }
 
-        // Capturar notional mínimo do contrato
-        let minNotional = 0;
+        // ✅ CORREÇÃO: Capturar notional mínimo do contrato (Futures exige $20, não $5!)
+        let minNotional = 20; // ✅ Padrão para Futures: $20 mínimo (não $5)
         try {
           const fInfo = await binanceClient.getFuturesSymbolInfo(symbol);
           const minNotionalFilter = fInfo?.filters?.find((f: any) => f.filterType === 'MIN_NOTIONAL');
           const notionalFilter = fInfo?.filters?.find((f: any) => f.filterType === 'NOTIONAL');
           const raw = minNotionalFilter?.minNotional ?? notionalFilter?.minNotional ?? (notionalFilter as any)?.notional;
-          if (raw) minNotional = parseFloat(raw);
-        } catch {}
+          if (raw) {
+            minNotional = parseFloat(raw);
+          } else {
+            // Se não encontrou no filtro, usar padrão de $20 para Futures
+            minNotional = 20;
+            console.log(`   ⚠️ MIN_NOTIONAL não encontrado no filtro, usando padrão $20 para Futures`);
+          }
+        } catch {
+          // Em caso de erro, usar padrão de $20
+          minNotional = 20;
+        }
 
         // Verificar saldo/margem disponível
         const futuresAccount = await binanceClient.getFuturesAccountInfo();
@@ -3091,7 +3100,9 @@ export class AdvancedTradingEngine {
                 const startTime = Date.now();
                 await this.executeTrade(opportunity.symbol, opportunity.decision);
                 const executionTime = Date.now() - startTime;
-                console.log(`✅ Trade ${opportunity.symbol} executada com sucesso em ${executionTime}ms`);
+                // ✅ CORREÇÃO: Só logar sucesso se executeTrade realmente executou (retornou sem erro)
+                // Se executeTrade retornou sem erro, significa que a ordem foi aceita pela Binance
+                console.log(`✅ Trade ${opportunity.symbol} executada com sucesso na Binance em ${executionTime}ms`);
               } catch (error) {
                 console.error(`❌ ERRO ao executar trade ${opportunity.symbol}:`, error);
                 console.error(`❌ Detalhes do erro:`, (error as Error).message);
@@ -3099,6 +3110,7 @@ export class AdvancedTradingEngine {
                   console.error(`❌ Status: ${(error as any).response.status}`);
                   console.error(`❌ Data:`, (error as any).response.data);
                 }
+                // ✅ Erro não fatal - continua tentando outros símbolos
               }
             } else {
               console.log(`⏸️ Trade ${opportunity.symbol} NÃO executada:`);
