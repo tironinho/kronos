@@ -7,9 +7,67 @@
 
 import { getBinanceClient } from './binance-api';
 import { supabase } from './supabase-db';
-import { getComponentLogger, SystemAction, SystemComponent } from './logger';
 
-const logger = getComponentLogger(SystemComponent.TradingEngine);
+// Importação segura do logger
+let logger: any;
+
+// Constantes para compatibilidade
+const SystemAction = {
+  Monitoring: 'monitoring',
+  DataFetching: 'data_fetching',
+  DataProcessing: 'data_processing',
+  DataPersistence: 'data_persistence',
+  SystemError: 'system_error'
+} as const;
+
+// Inicializar logger de forma segura (lazy loading)
+function getLogger() {
+  if (logger) {
+    return logger;
+  }
+
+  try {
+    // Tentar importar do logging.ts
+    const loggingModule = require('./logging');
+    
+    if (loggingModule && loggingModule.getComponentLogger) {
+      // Tentar obter SystemComponent do módulo
+      const SystemComponent = loggingModule.SystemComponent || {
+        TradingEngine: 'trading_engine'
+      };
+      
+      const component = SystemComponent.TradingEngine || 'trading_engine';
+      logger = loggingModule.getComponentLogger(component);
+      
+      if (logger) {
+        return logger;
+      }
+    }
+  } catch (error) {
+    // Silenciosamente ignorar erro
+  }
+  
+  // Fallback: logger simples usando console
+  logger = {
+    info: (action?: any, message?: any, error?: any, ...args: any[]) => {
+      console.log(`[INFO] ${action || ''}:`, message || '', error || '', ...args);
+    },
+    warn: (action?: any, message?: any, error?: any, ...args: any[]) => {
+      console.warn(`[WARN] ${action || ''}:`, message || '', error || '', ...args);
+    },
+    error: (action?: any, message?: any, error?: any, ...args: any[]) => {
+      console.error(`[ERROR] ${action || ''}:`, message || '', error || '', ...args);
+    },
+    debug: (action?: any, message?: any, error?: any, ...args: any[]) => {
+      console.debug(`[DEBUG] ${action || ''}:`, message || '', error || '', ...args);
+    },
+  };
+  
+  return logger;
+}
+
+// Inicializar logger
+logger = getLogger();
 
 interface PriceSnapshot {
   trade_id: string;
@@ -78,24 +136,50 @@ export class TradePriceMonitorService {
    */
   public async startMonitoring(): Promise<void> {
     if (this.isMonitoring) {
-      logger.info(SystemAction.Monitoring, 'Monitoramento já está ativo');
+      getLogger().info(SystemAction.Monitoring, 'Monitoramento já está ativo');
       return;
     }
 
-    this.isMonitoring = true;
-    logger.info(SystemAction.Monitoring, 'Iniciando monitoramento de preços das trades');
+    try {
+      this.isMonitoring = true;
+      getLogger().info(SystemAction.Monitoring, 'Iniciando monitoramento de preços das trades');
 
-    // Primeira execução imediata
-    await this.monitorAllOpenTrades();
-
-    // Configurar intervalo
-    this.monitoringInterval = setInterval(async () => {
-      if (this.isMonitoring) {
+      // Primeira execução imediata (com tratamento de erro)
+      try {
         await this.monitorAllOpenTrades();
+      } catch (initialError) {
+        getLogger().warn(
+          SystemAction.Monitoring,
+          'Erro na primeira execução do monitoramento (continuando)',
+          initialError as Error
+        );
       }
-    }, this.MONITORING_INTERVAL);
 
-    logger.info(SystemAction.Monitoring, `Monitoramento ativo (intervalo: ${this.MONITORING_INTERVAL / 1000}s)`);
+      // Configurar intervalo
+      this.monitoringInterval = setInterval(async () => {
+        if (this.isMonitoring) {
+          try {
+            await this.monitorAllOpenTrades();
+          } catch (intervalError) {
+            getLogger().error(
+              SystemAction.Monitoring,
+              'Erro no monitoramento periódico',
+              intervalError as Error
+            );
+          }
+        }
+      }, this.MONITORING_INTERVAL);
+
+      getLogger().info(SystemAction.Monitoring, `Monitoramento ativo (intervalo: ${this.MONITORING_INTERVAL / 1000}s)`);
+    } catch (error) {
+      this.isMonitoring = false;
+      getLogger().error(
+        SystemAction.Monitoring,
+        'Erro crítico ao iniciar monitoramento',
+        error as Error
+      );
+      throw error;
+    }
   }
 
   /**
@@ -112,7 +196,7 @@ export class TradePriceMonitorService {
       this.monitoringInterval = null;
     }
 
-    logger.info(SystemAction.Monitoring, 'Monitoramento de preços parado');
+    getLogger().info(SystemAction.Monitoring, 'Monitoramento de preços parado');
   }
 
   /**
@@ -121,7 +205,7 @@ export class TradePriceMonitorService {
   private async monitorAllOpenTrades(): Promise<void> {
     try {
       if (!supabase) {
-        logger.warn(SystemAction.Monitoring, 'Supabase não disponível para monitoramento');
+        getLogger().warn(SystemAction.Monitoring, 'Supabase não disponível para monitoramento');
         return;
       }
 
@@ -133,7 +217,7 @@ export class TradePriceMonitorService {
         .order('opened_at', { ascending: false });
 
       if (error) {
-        logger.error(SystemAction.DataFetching, 'Erro ao buscar trades abertas', error as Error);
+        getLogger().error(SystemAction.DataFetching, 'Erro ao buscar trades abertas', error as Error);
         return;
       }
 
@@ -141,14 +225,14 @@ export class TradePriceMonitorService {
         return; // Sem trades abertas, não há nada para monitorar
       }
 
-      logger.info(SystemAction.Monitoring, `Monitorando ${openTrades.length} trade(s) aberta(s)`);
+      getLogger().info(SystemAction.Monitoring, `Monitorando ${openTrades.length} trade(s) aberta(s)`);
 
       // Criar snapshots para cada trade
       const snapshotPromises = openTrades.map(trade => this.createSnapshot(trade));
       await Promise.all(snapshotPromises);
 
     } catch (error) {
-      logger.error(SystemAction.SystemError, 'Erro no monitoramento de trades', error as Error);
+      getLogger().error(SystemAction.SystemError, 'Erro no monitoramento de trades', error as Error);
     }
   }
 
@@ -164,11 +248,11 @@ export class TradePriceMonitorService {
 
       // Evitar snapshots muito frequentes (mínimo 30 segundos entre snapshots da mesma trade)
       const lastSnapshot = this.lastSnapshotTime.get(tradeId);
-      const now = Date.now();
-      if (lastSnapshot && (now - lastSnapshot) < 30000) {
+      const nowTimestamp = Date.now();
+      if (lastSnapshot && (nowTimestamp - lastSnapshot) < 30000) {
         return; // Muito recente, pular
       }
-      this.lastSnapshotTime.set(tradeId, now);
+      this.lastSnapshotTime.set(tradeId, nowTimestamp);
 
       const binanceClient = getBinanceClient();
 
@@ -238,9 +322,9 @@ export class TradePriceMonitorService {
 
       // 7. Calcular tempo decorrido
       const openedAt = new Date(trade.opened_at);
-      const now = new Date();
-      const minutesSinceEntry = Math.floor((now.getTime() - openedAt.getTime()) / (1000 * 60));
-      const hoursSinceEntry = (now.getTime() - openedAt.getTime()) / (1000 * 60 * 60);
+      const currentTime = new Date();
+      const minutesSinceEntry = Math.floor((currentTime.getTime() - openedAt.getTime()) / (1000 * 60));
+      const hoursSinceEntry = (currentTime.getTime() - openedAt.getTime()) / (1000 * 60 * 60);
 
       // 8. Determinar condição de mercado (simplificado)
       const marketCondition = this.determineMarketCondition(
@@ -253,7 +337,7 @@ export class TradePriceMonitorService {
       const snapshot: PriceSnapshot = {
         trade_id: tradeId,
         symbol: trade.symbol,
-        timestamp: now,
+        timestamp: currentTime,
         current_price: currentPrice,
         entry_price: trade.entry_price,
         high_price: highPrice,
@@ -275,13 +359,13 @@ export class TradePriceMonitorService {
       // 10. Salvar no banco
       await this.saveSnapshot(snapshot);
 
-      logger.debug(
+      getLogger().debug(
         SystemAction.DataProcessing,
         `Snapshot criado para ${trade.symbol} (${tradeId}): P&L ${pnlPercent.toFixed(2)}%`
       );
 
     } catch (error) {
-      logger.error(
+      getLogger().error(
         SystemAction.DataProcessing,
         `Erro ao criar snapshot para trade ${trade.trade_id}`,
         error as Error
@@ -360,10 +444,10 @@ export class TradePriceMonitorService {
         });
 
       if (error) {
-        logger.error(SystemAction.DataPersistence, `Erro ao salvar snapshot: ${error.message}`, error as Error);
+        getLogger().error(SystemAction.DataPersistence, `Erro ao salvar snapshot: ${error.message}`, error as Error);
       }
     } catch (error) {
-      logger.error(SystemAction.DataPersistence, 'Erro ao salvar snapshot no banco', error as Error);
+      getLogger().error(SystemAction.DataPersistence, 'Erro ao salvar snapshot no banco', error as Error);
     }
   }
 
@@ -384,13 +468,13 @@ export class TradePriceMonitorService {
         .limit(limit);
 
       if (error) {
-        logger.error(SystemAction.DataFetching, `Erro ao buscar histórico de ${tradeId}`, error as Error);
+        getLogger().error(SystemAction.DataFetching, `Erro ao buscar histórico de ${tradeId}`, error as Error);
         return [];
       }
 
       return data || [];
     } catch (error) {
-      logger.error(SystemAction.DataFetching, 'Erro ao buscar histórico de preços', error as Error);
+      getLogger().error(SystemAction.DataFetching, 'Erro ao buscar histórico de preços', error as Error);
       return [];
     }
   }
@@ -431,7 +515,7 @@ export class TradePriceMonitorService {
         price_volatility: this.calculateVolatility(prices),
       };
     } catch (error) {
-      logger.error(SystemAction.DataProcessing, 'Erro ao calcular estatísticas', error as Error);
+      getLogger().error(SystemAction.DataProcessing, 'Erro ao calcular estatísticas', error as Error);
       return null;
     }
   }

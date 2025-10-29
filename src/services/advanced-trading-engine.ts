@@ -460,14 +460,22 @@ export class AdvancedTradingEngine {
         console.log(`   💰 P&L REAL (Binance): $${pnlValue.toFixed(4)} (${pnlPercentReal.toFixed(2)}%)`);
         console.log(`   📋 Debug: isolatedMargin=${isolatedMargin}, estimatedMargin=${initialMargin}`);
         
-        // ✅ AJUSTE: SL em -15% (mais conservador) e TP em 25% (realista)
-        if (pnlPercentReal <= -15.0) {
+        // ✅ CORREÇÃO CRÍTICA: Usar configuração do serviço (SL 4%, TP 8%)
+        // ✅ Incluir taxas no cálculo: taxa estimada 0.04% por trade
+        const tradingFeePercent = 0.04; // 0.02% entrada + 0.02% saída
+        const configService = TradingConfigurationService.getInstance();
+        const riskConfig = configService.getRiskManagement();
+        
+        const stopLossThreshold = -riskConfig.stopLossPct - tradingFeePercent; // -5.04% (inclui taxa)
+        const takeProfitThreshold = riskConfig.takeProfitPct - tradingFeePercent; // +9.96% (líquido após taxa)
+        
+        if (pnlPercentReal <= stopLossThreshold) {
           console.log(`\n🚨 STOP LOSS ATIVADO para ${trade.symbol}!`);
-          console.log(`   P&L REAL: ${pnlPercentReal.toFixed(2)}%`);
+          console.log(`   P&L REAL: ${pnlPercentReal.toFixed(2)}% (limite: ${stopLossThreshold.toFixed(2)}%)`);
           console.log(`   P&L USDT: $${pnlValue.toFixed(4)}`);
           await this.closeTrade(tradeId, 'stop_loss');
           continue;
-        } else if (pnlPercentReal >= 25.0) {
+        } else if (pnlPercentReal >= takeProfitThreshold) {
           console.log(`\n🎯 TAKE PROFIT ATIVADO para ${trade.symbol}!`);
           console.log(`   P&L REAL: ${pnlPercentReal.toFixed(2)}%`);
           console.log(`   P&L USDT: $${pnlValue.toFixed(4)}`);
@@ -477,10 +485,11 @@ export class AdvancedTradingEngine {
           console.log(`   ✅ ${trade.symbol} dentro do limite. P&L: ${pnlPercentReal.toFixed(2)}%`);
         }
         
-        // ✅ TRAILING TAKE PROFIT: Acompanha o lucro e maximiza (ajustado para 25%)
-        if (pnlPercentReal > 15.0) {
-          // ✅ AJUSTE: Trail em 15% (mais conservador)
-          const newTakeProfitPrice = currentPrice * (trade.side === 'BUY' ? 1.10 : 0.90); // Garantir 15% líquido mínimo
+        // ✅ TRAILING TAKE PROFIT: Acompanha o lucro e maximiza (ajustado para cobrir taxas)
+        // Ativar trailing quando estiver em +5% (após cobrir taxa de 0.04% e ter margem)
+        if (pnlPercentReal > 5.0) {
+          // ✅ Trail garante lucro líquido mínimo de 4% após taxas
+          const newTakeProfitPrice = currentPrice * (trade.side === 'BUY' ? 1.04 : 0.96); // Garantir 4% líquido mínimo
           
           // Se o novo Take Profit é MAIOR que o anterior, atualizar (Trailing)
           const shouldTrail = trade.side === 'BUY' 
@@ -2772,13 +2781,21 @@ export class AdvancedTradingEngine {
     // Registrar equity inicial
     await this.recordEquityHistory('USDT_FUTURES', futuresBalance);
     
-    // ✅ NOVO: Iniciar monitoramento de preços das trades
-    await tradePriceMonitor.startMonitoring();
-    console.log('📊 Monitoramento de preços das trades iniciado');
+    // ✅ NOVO: Iniciar monitoramento de preços das trades (com tratamento de erro)
+    try {
+      await tradePriceMonitor.startMonitoring();
+      console.log('📊 Monitoramento de preços das trades iniciado');
+    } catch (monitorError) {
+      console.warn('⚠️ Erro ao iniciar monitoramento de preços (continuando):', monitorError);
+    }
     
-    // ✅ NOVO: Iniciar serviço de preenchimento automático do banco
-    await databasePopulationService.start();
-    console.log('📊 Serviço de preenchimento automático do banco iniciado');
+    // ✅ NOVO: Iniciar serviço de preenchimento automático do banco (com tratamento de erro)
+    try {
+      await databasePopulationService.start();
+      console.log('📊 Serviço de preenchimento automático do banco iniciado');
+    } catch (populateError) {
+      console.warn('⚠️ Erro ao iniciar serviço de preenchimento (continuando):', populateError);
+    }
     
     console.log(`✅ Trading Futures iniciado com sucesso! Saldo: $${futuresBalance.toFixed(2)}`);
     

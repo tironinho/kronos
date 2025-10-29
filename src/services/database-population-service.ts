@@ -10,11 +10,52 @@
 import { supabase } from './supabase-db';
 import { getBinanceClient } from './binance-api';
 import DataPersistenceService from './data-persistence-service';
-import { getComponentLogger, SystemAction, SystemComponent } from './logger';
+// Importação segura do logger
+let logger: any;
+
+function getLogger() {
+  if (logger) {
+    return logger;
+  }
+
+  try {
+    const loggingModule = require('./logging');
+    if (loggingModule && loggingModule.getComponentLogger) {
+      const SystemComponent = loggingModule.SystemComponent || { TradingEngine: 'trading_engine' };
+      const component = SystemComponent.TradingEngine || 'trading_engine';
+      logger = loggingModule.getComponentLogger(component);
+      if (logger) {
+        return logger;
+      }
+    }
+  } catch (error) {
+    // Ignorar erro
+  }
+  
+  logger = {
+    info: (action?: any, message?: any, ...args: any[]) => console.log(`[INFO] ${action || ''}:`, message || '', ...args),
+    warn: (action?: any, message?: any, ...args: any[]) => console.warn(`[WARN] ${action || ''}:`, message || '', ...args),
+    error: (action?: any, message?: any, error?: any, ...args: any[]) => console.error(`[ERROR] ${action || ''}:`, message || '', error || '', ...args),
+    debug: (action?: any, message?: any, ...args: any[]) => console.debug(`[DEBUG] ${action || ''}:`, message || '', ...args),
+  };
+  
+  return logger;
+}
+
+// Constantes locais
+const SystemAction = {
+  Monitoring: 'monitoring',
+  DataFetching: 'data_fetching',
+  DataProcessing: 'data_processing',
+  DataPersistence: 'data_persistence',
+  SystemError: 'system_error'
+} as const;
+
 import EquityMonitoringService from './equity-monitoring-service';
 import TechnicalAnalysisService from './technical-analysis-service';
 
-const logger = getComponentLogger(SystemComponent.TradingEngine);
+// Inicializar logger
+logger = getLogger();
 
 export class DatabasePopulationService {
   private static instance: DatabasePopulationService;
@@ -39,27 +80,53 @@ export class DatabasePopulationService {
    */
   public async start(): Promise<void> {
     if (this.isRunning) {
-      logger.info(SystemAction.Monitoring, 'Serviço de preenchimento já está rodando');
+      getLogger().info(SystemAction.Monitoring, 'Serviço de preenchimento já está rodando');
       return;
     }
 
-    this.isRunning = true;
-    logger.info(SystemAction.Monitoring, 'Iniciando serviço de preenchimento de banco de dados');
+    try {
+      this.isRunning = true;
+      getLogger().info(SystemAction.Monitoring, 'Iniciando serviço de preenchimento de banco de dados');
 
-    // Primeira execução imediata
-    await this.populateAllTables();
-
-    // Configurar intervalo
-    this.intervalId = setInterval(async () => {
-      if (this.isRunning) {
+      // Primeira execução imediata (com tratamento de erro)
+      try {
         await this.populateAllTables();
+      } catch (initialError) {
+        getLogger().warn(
+          SystemAction.Monitoring,
+          'Erro na primeira execução do preenchimento (continuando)',
+          initialError as Error
+        );
       }
-    }, this.POPULATION_INTERVAL);
 
-    logger.info(
-      SystemAction.Monitoring,
-      `Serviço de preenchimento ativo (intervalo: ${this.POPULATION_INTERVAL / 1000 / 60} minutos)`
-    );
+      // Configurar intervalo
+      this.intervalId = setInterval(async () => {
+        if (this.isRunning) {
+          try {
+            await this.populateAllTables();
+          } catch (intervalError) {
+            getLogger().error(
+              SystemAction.Monitoring,
+              'Erro no preenchimento periódico',
+              intervalError as Error
+            );
+          }
+        }
+      }, this.POPULATION_INTERVAL);
+
+      getLogger().info(
+        SystemAction.Monitoring,
+        `Serviço de preenchimento ativo (intervalo: ${this.POPULATION_INTERVAL / 1000 / 60} minutos)`
+      );
+    } catch (error) {
+      this.isRunning = false;
+      getLogger().error(
+        SystemAction.Monitoring,
+        'Erro crítico ao iniciar serviço de preenchimento',
+        error as Error
+      );
+      throw error;
+    }
   }
 
   /**
@@ -76,7 +143,7 @@ export class DatabasePopulationService {
       this.intervalId = null;
     }
 
-    logger.info(SystemAction.Monitoring, 'Serviço de preenchimento parado');
+    getLogger().info(SystemAction.Monitoring, 'Serviço de preenchimento parado');
   }
 
   /**
@@ -84,7 +151,7 @@ export class DatabasePopulationService {
    */
   private async populateAllTables(): Promise<void> {
     const startTime = Date.now();
-    logger.info(SystemAction.DataProcessing, 'Iniciando preenchimento de todas as tabelas...');
+    getLogger().info(SystemAction.DataProcessing, 'Iniciando preenchimento de todas as tabelas...');
 
     try {
       // Executar todos os preenchimentos em paralelo (onde possível)
@@ -101,12 +168,12 @@ export class DatabasePopulationService {
       await this.populateSystemAlerts();
 
       const duration = Date.now() - startTime;
-      logger.info(
+      getLogger().info(
         SystemAction.DataProcessing,
         `Preenchimento concluído em ${duration}ms`
       );
     } catch (error) {
-      logger.error(
+      getLogger().error(
         SystemAction.SystemError,
         'Erro no preenchimento de tabelas',
         error as Error
@@ -162,9 +229,9 @@ export class DatabasePopulationService {
         throw error;
       }
 
-      logger.debug(SystemAction.DataPersistence, 'kronos_metrics populada');
+      getLogger().debug(SystemAction.DataPersistence, 'kronos_metrics populada');
     } catch (error) {
-      logger.error(
+      getLogger().error(
         SystemAction.DataPersistence,
         'Erro ao preencher kronos_metrics',
         error as Error
@@ -191,9 +258,9 @@ export class DatabasePopulationService {
         await this.dataPersistence.saveMarketData(symbol);
       }
 
-      logger.debug(SystemAction.DataPersistence, 'market_data_realtime populada');
+      getLogger().debug(SystemAction.DataPersistence, 'market_data_realtime populada');
     } catch (error) {
-      logger.error(
+      getLogger().error(
         SystemAction.DataPersistence,
         'Erro ao preencher market_data_realtime',
         error as Error
@@ -207,9 +274,9 @@ export class DatabasePopulationService {
   private async populateSentimentData(): Promise<void> {
     try {
       await this.dataPersistence.saveSentimentData('BTCUSDT');
-      logger.debug(SystemAction.DataPersistence, 'sentiment_data populada');
+      getLogger().debug(SystemAction.DataPersistence, 'sentiment_data populada');
     } catch (error) {
-      logger.error(
+      getLogger().error(
         SystemAction.DataPersistence,
         'Erro ao preencher sentiment_data',
         error as Error
@@ -223,9 +290,9 @@ export class DatabasePopulationService {
   private async populateMacroIndicators(): Promise<void> {
     try {
       await this.dataPersistence.saveMacroIndicators();
-      logger.debug(SystemAction.DataPersistence, 'macro_indicators populada');
+      getLogger().debug(SystemAction.DataPersistence, 'macro_indicators populada');
     } catch (error) {
-      logger.error(
+      getLogger().error(
         SystemAction.DataPersistence,
         'Erro ao preencher macro_indicators',
         error as Error
@@ -360,9 +427,9 @@ export class DatabasePopulationService {
         avgTradeDuration,
       });
 
-      logger.debug(SystemAction.DataPersistence, 'system_performance populada');
+      getLogger().debug(SystemAction.DataPersistence, 'system_performance populada');
     } catch (error) {
-      logger.error(
+      getLogger().error(
         SystemAction.DataPersistence,
         'Erro ao preencher system_performance',
         error as Error
@@ -473,13 +540,13 @@ export class DatabasePopulationService {
           });
 
           if (error) {
-            logger.warn(
+            getLogger().warn(
               SystemAction.DataPersistence,
               `Erro ao salvar indicadores técnicos para ${symbol}: ${error.message}`
             );
           }
         } catch (error) {
-          logger.warn(
+          getLogger().warn(
             SystemAction.DataPersistence,
             `Erro ao processar ${symbol} para indicadores técnicos`,
             error as Error
@@ -487,9 +554,9 @@ export class DatabasePopulationService {
         }
       }
 
-      logger.debug(SystemAction.DataPersistence, 'technical_indicators_history populada');
+      getLogger().debug(SystemAction.DataPersistence, 'technical_indicators_history populada');
     } catch (error) {
-      logger.error(
+      getLogger().error(
         SystemAction.DataPersistence,
         'Erro ao preencher technical_indicators_history',
         error as Error
@@ -528,9 +595,9 @@ export class DatabasePopulationService {
         }
       }
 
-      logger.debug(SystemAction.DataPersistence, 'system_alerts populada');
+      getLogger().debug(SystemAction.DataPersistence, 'system_alerts populada');
     } catch (error) {
-      logger.error(
+      getLogger().error(
         SystemAction.DataPersistence,
         'Erro ao preencher system_alerts',
         error as Error

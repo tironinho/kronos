@@ -78,26 +78,26 @@ class TradingConfigurationService {
   private getDefaultConfig(): TradingConfig {
     return {
       qualityFilters: {
-        minWinRate: 45,
-        minConfidence: 40.0,
-        maxDrawdown: 15,
-        minProfitFactor: 1.2,
-        minTradeDuration: 30, // minutos
+        minWinRate: 60, // ✅ AUMENTADO: de 55% para 60% (muito mais seletivo)
+        minConfidence: 70.0, // ✅ AUMENTADO drasticamente: de 60% para 70% (apenas trades de alta qualidade)
+        maxDrawdown: 8, // ✅ REDUZIDO: de 10% para 8% (proteção mais rígida)
+        minProfitFactor: 2.0, // ✅ AUMENTADO: de 1.5 para 2.0 (muito mais rigoroso)
+        minTradeDuration: 90, // ✅ AUMENTADO: de 60min para 90min (evitar trades muito curtas)
         maxTradeDuration: 1440, // 24 horas
-        minVolumeFactor: 1.2,
-        maxVolatility: 5.0
+        minVolumeFactor: 2.0, // ✅ AUMENTADO: de 1.5 para 2.0 (muito mais liquidez)
+        maxVolatility: 3.0 // ✅ REDUZIDO: de 4.0 para 3.0 (muito menos risco)
       },
       
       riskManagement: {
-        maxPositionsPerSymbol: 3,
-        maxTotalPositions: 10, // Aumentado de 8 para 10
-        positionSizePct: 5, // % do capital
-        stopLossPct: 2,
-        takeProfitPct: 4,
-        maxDailyLossPct: 3,
-        maxDrawdownPct: 15,
-        minRiskRewardRatio: 1.5,
-        maxCorrelation: 0.7
+        maxPositionsPerSymbol: 1, // ✅ REDUZIDO: de 2 para 1 (máxima concentração)
+        maxTotalPositions: 2, // ✅ REDUZIDO drasticamente: de 5 para 2 (máxima seletividade)
+        positionSizePct: 5, // ✅ MANTIDO em 5% (compensar menos trades)
+        stopLossPct: 5, // ✅ AUMENTADO: de 4% para 5% (ainda mais respiro)
+        takeProfitPct: 10, // ✅ AUMENTADO: de 8% para 10% (lucro maior)
+        maxDailyLossPct: 1.5, // ✅ REDUZIDO: de 2% para 1.5% (proteção muito rígida)
+        maxDrawdownPct: 8, // ✅ REDUZIDO: de 10% para 8% (parar muito antes)
+        minRiskRewardRatio: 2.5, // ✅ AUMENTADO: de 2.0 para 2.5 (melhor relação)
+        maxCorrelation: 0.5 // ✅ REDUZIDO: de 0.7 para 0.5 (menos correlação)
       },
       
       technicalAnalysis: {
@@ -124,17 +124,17 @@ class TradingConfigurationService {
           'LINKUSDT', 'UNIUSDT', 'ATOMUSDT', 'NEARUSDT', 'FTMUSDT'
         ],
         symbolSettings: {
-          'BTCUSDT': { minConfidence: 35, maxPositions: 2 },
-          'ETHUSDT': { minConfidence: 35, maxPositions: 2 },
-          'ADAUSDT': { minConfidence: 40, maxPositions: 1 },
-          'SOLUSDT': { minConfidence: 40, maxPositions: 1 },
-          'XRPUSDT': { minConfidence: 40, maxPositions: 1 }
+          'BTCUSDT': { minConfidence: 70, maxPositions: 1 },
+          'ETHUSDT': { minConfidence: 70, maxPositions: 1 },
+          'ADAUSDT': { minConfidence: 75, maxPositions: 1 },
+          'SOLUSDT': { minConfidence: 75, maxPositions: 1 },
+          'XRPUSDT': { minConfidence: 75, maxPositions: 1 }
         }
       },
       
       tradeLimits: {
-        maxActiveTrades: null, // Sem limite
-        allowNewTrades: true,
+        maxActiveTrades: 2, // ✅ REDUZIDO: máximo 2 trades (máxima seletividade)
+        allowNewTrades: true, // ✅ DESBLOQUEADO: Backtest completo, sistema otimizado
         checkParameters: true
       }
     };

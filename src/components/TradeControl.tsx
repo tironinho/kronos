@@ -33,11 +33,13 @@ interface TradingMetrics {
   totalPnLPercent: number;
   todayPnL: number;
   winRate: number;
+  realTimeWinRate?: number; // ✅ Win Rate em tempo real incluindo trades abertas
   avgTradeDuration: number;
   profitFactor: number;
   sharpeRatio: number;
   currentActivePnL: number;
   winningTrades: number;
+  totalPnLIncludingActive?: number; // ✅ P&L Total incluindo trades abertas
   losingTrades: number;
   totalWins: number;
   totalLosses: number;
@@ -496,7 +498,9 @@ const TradeControl: React.FC<TradeControlProps> = ({ isEngineRunning, onToggleEn
                 </div>
                 <div className="flex justify-between">
                   <span>Win Rate:</span>
-                  <span className="font-bold text-green-600">{metrics.winRate?.toFixed(1)}%</span>
+                  <span className="font-bold text-green-600">
+                    {(metrics.realTimeWinRate || metrics.winRate || 0).toFixed(1)}%
+                  </span>
                 </div>
               </div>
             )}
@@ -535,11 +539,15 @@ const TradeControl: React.FC<TradeControlProps> = ({ isEngineRunning, onToggleEn
             <div className="flex items-center justify-between mb-2">
               <Target className="w-7 h-7 text-purple-600" />
               <span className="px-3 py-1 bg-purple-600 text-white rounded-full text-xs font-bold">
-                {metrics?.winRate?.toFixed(1) || '0.0'}%
+                {(metrics?.realTimeWinRate || metrics?.winRate || 0).toFixed(1)}%
               </span>
             </div>
-            <p className="text-4xl font-bold text-purple-900 mb-1">{metrics?.winRate?.toFixed(1) || 0}%</p>
-            <p className="text-sm font-semibold text-gray-700">Taxa de Acerto</p>
+            <p className="text-4xl font-bold text-purple-900 mb-1">
+              {metrics?.realTimeWinRate ? metrics.realTimeWinRate.toFixed(1) : metrics?.winRate?.toFixed(1) || 0}%
+            </p>
+            <p className="text-sm font-semibold text-gray-700">
+              Taxa de Acerto {metrics?.realTimeWinRate ? '(Tempo Real)' : '(Fechadas)'}
+            </p>
             {metrics && metrics.winningTrades > 0 && (
               <div className="text-xs text-gray-600 mt-2 space-y-1">
                 <div className="flex justify-between">
@@ -1128,8 +1136,8 @@ const TradeControl: React.FC<TradeControlProps> = ({ isEngineRunning, onToggleEn
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Taxa de Acerto:</span>
-                  <span className={`font-bold ${metrics.winRate >= 50 ? 'text-green-600' : 'text-red-600'}`}>
-                    {metrics.winRate.toFixed(1)}%
+                  <span className={`font-bold ${(metrics.realTimeWinRate || metrics.winRate) >= 50 ? 'text-green-600' : 'text-red-600'}`}>
+                    {(metrics.realTimeWinRate || metrics.winRate).toFixed(1)}%
                   </span>
                 </div>
                 <div className="flex justify-between">

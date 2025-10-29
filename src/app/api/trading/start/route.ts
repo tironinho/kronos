@@ -62,7 +62,17 @@ export async function POST(request: Request) {
           data: { availableBalance: realBalance, minimumRequired: 0.50 }
         }, { status: 400 });
       }
-      await advancedTradingEngine.startTradingFutures(leverage || 5);
+      try {
+        await advancedTradingEngine.startTradingFutures(leverage || 5);
+      } catch (startError: any) {
+        console.error('❌ Erro ao iniciar trading Futures:', startError);
+        return NextResponse.json({
+          status: 'error',
+          message: `Erro ao iniciar trading Futures: ${startError.message || startError.toString()}`,
+          error: startError.toString(),
+          stack: startError.stack
+        }, { status: 500 });
+      }
     } else {
       realBalance = spotBalance;
       if (realBalance < 0.5) {
@@ -72,7 +82,17 @@ export async function POST(request: Request) {
           data: { availableBalance: realBalance, minimumRequired: 0.50 }
         }, { status: 400 });
       }
-      await advancedTradingEngine.startTrading(realBalance);
+      try {
+        await advancedTradingEngine.startTrading(realBalance);
+      } catch (startError: any) {
+        console.error('❌ Erro ao iniciar trading Spot:', startError);
+        return NextResponse.json({
+          status: 'error',
+          message: `Erro ao iniciar trading Spot: ${startError.message || startError.toString()}`,
+          error: startError.toString(),
+          stack: startError.stack
+        }, { status: 500 });
+      }
     }
     
     console.log('✅ Advanced Trading iniciado com IA!');
