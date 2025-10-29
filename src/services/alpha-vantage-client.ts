@@ -80,6 +80,25 @@ export class AlphaVantageClient {
   private readonly RATE_LIMIT = 5; // 5 requests per minute for free tier
   private readonly RATE_LIMIT_WINDOW = 60000; // 1 minute
 
+  // ✅ Mapeamento de símbolos Binance para códigos Alpha Vantage suportados
+  private readonly SYMBOL_MAP: Record<string, string> = {
+    'BTC': 'BTC',
+    'ETH': 'ETH',
+    'BNB': 'BNB',  // Pode não ser suportado, mas tentamos
+    'ADA': 'ADA',
+    'SOL': 'SOL',
+    'XRP': 'XRP',
+    'DOGE': 'DOGE',
+    'MATIC': 'MATIC',
+    'DOT': 'DOT',
+    'AVAX': 'AVAX',
+    'LINK': 'LINK',
+    'UNI': 'UNI',
+    'LTC': 'LTC',
+    'ATOM': 'ATOM',
+    'ALGO': 'ALGO'
+  };
+
   constructor(apiKey: string) {
     this.config = {
       apiKey,
@@ -135,8 +154,17 @@ export class AlphaVantageClient {
         }
       });
       
+      // Verificar erros, mas tratar "Invalid API call" de forma especial
       if (response.data['Error Message']) {
-        throw new Error(`Alpha Vantage Error: ${response.data['Error Message']}`);
+        const errorMsg = response.data['Error Message'];
+        // "Invalid API call" indica que o símbolo/endpoint não é suportado - não é erro crítico
+        if (errorMsg.includes('Invalid API call')) {
+          logTrading(`⚠️ Alpha Vantage: ${errorMsg} para ${params.function}`);
+          // Retornar os dados com erro para que métodos chamadores possam tratá-lo
+          return response.data;
+        }
+        // Outros erros são críticos
+        throw new Error(`Alpha Vantage Error: ${errorMsg}`);
       }
       
       if (response.data['Note']) {
@@ -147,7 +175,10 @@ export class AlphaVantageClient {
       return response.data;
       
     } catch (error: any) {
-      logger.error(`❌ Alpha Vantage: Erro na requisição para ${params.function}:`, 'API', null, error as Error);
+      // Não logar como ERROR se for "Invalid API call" (já foi tratado acima)
+      if (!error?.message?.includes('Invalid API call')) {
+        logger.error(`❌ Alpha Vantage: Erro na requisição para ${params.function}:`, 'API', null, error as Error);
+      }
       throw error;
     }
   }
@@ -453,15 +484,46 @@ export class AlphaVantageClient {
   }
 
   /**
-   * ✅ Obter cotação de criptomoeda
+   * ✅ Helper: Verifica se símbolo é suportado pela Alpha Vantage
+   */
+  private isSymbolSupported(symbol: string): boolean {
+    return symbol in this.SYMBOL_MAP;
+  }
+
+  /**
+   * ✅ Helper: Converte símbolo para código Alpha Vantage (se disponível)
+   */
+  private normalizeSymbol(symbol: string): string | null {
+    const normalized = symbol.toUpperCase();
+    if (this.SYMBOL_MAP[normalized]) {
+      return this.SYMBOL_MAP[normalized];
+    }
+    // Se não está no mapa, tenta usar o símbolo diretamente
+    return normalized;
+  }
+
+  /**
+   * ✅ Obter cotação de criptomoeda (melhorado com dados mais completos)
    */
   public async getCryptoQuote(symbol: string): Promise<CryptoQuote | null> {
     try {
+      const normalizedSymbol = this.normalizeSymbol(symbol);
+      if (!normalizedSymbol) {
+        logTrading(`⚠️ Alpha Vantage: Símbolo ${symbol} não suportado`);
+        return null;
+      }
+
       const data = await this.makeRequest({
         function: 'DIGITAL_CURRENCY_DAILY',
-        symbol: symbol,
+        symbol: normalizedSymbol,
         market: 'USD'
       });
+      
+      // Verificar se há erro específico da API
+      if (data['Error Message'] && data['Error Message'].includes('Invalid API call')) {
+        logTrading(`⚠️ Alpha Vantage: Símbolo ${symbol} não suportado pelo endpoint DIGITAL_CURRENCY_DAILY`);
+        return null;
+      }
       
       const timeSeries = data['Time Series (Digital Currency Daily)'];
       if (!timeSeries) {
@@ -469,31 +531,295 @@ export class AlphaVantageClient {
         return null;
       }
       
-      const latestDate = Object.keys(timeSeries)[0];
+      const dates = Object.keys(timeSeries).sort().reverse();
+      const latestDate = dates[0];
+      const previousDate = dates[1];
+      
       const latestData = timeSeries[latestDate];
+      const previousData = previousDate ? timeSeries[previousDate] : null;
+      
+      const price = parseFloat(latestData['4a. close (USD)']);
+      const previousPrice = previousData ? parseFloat(previousData['4a. close (USD)']) : price;
+      const change = price - previousPrice;
+      const changePercent = previousPrice !== 0 ? (change / previousPrice) * 100 : 0;
       
       const result: CryptoQuote = {
         symbol: symbol,
-        price: parseFloat(latestData['4a. close (USD)']),
-        change: 0, // Alpha Vantage não fornece change diretamente
-        changePercent: 0, // Alpha Vantage não fornece change percent diretamente
+        price,
+        change,
+        changePercent,
         volume: parseFloat(latestData['5. volume']),
-        marketCap: 0, // Alpha Vantage não fornece market cap
+        marketCap: 0, // Alpha Vantage não fornece market cap diretamente
         timestamp: latestDate
       };
       
       logTrading(`📊 Alpha Vantage: Cotação crypto obtida para ${symbol}`, {
         price: result.price,
+        change: result.change,
+        changePercent: result.changePercent.toFixed(2) + '%',
         volume: result.volume,
         date: result.timestamp
       });
       
       return result;
       
-    } catch (error) {
-      logger.error(`❌ Alpha Vantage: Erro ao obter cotação crypto de ${symbol}:`, 'API', null, error as Error);
+    } catch (error: any) {
+      // Tratar especificamente "Invalid API call" como não suportado, não erro crítico
+      if (error?.message?.includes('Invalid API call')) {
+        logTrading(`⚠️ Alpha Vantage: Símbolo ${symbol} não suportado (Invalid API call)`);
+        return null;
+      }
+      // Outros erros logamos mas não quebramos o fluxo
+      logTrading(`⚠️ Alpha Vantage: Erro ao obter cotação crypto de ${symbol} - continuando sem esses dados`);
       return null;
     }
+  }
+
+  /**
+   * ✅ NOVO: Obter taxa de câmbio crypto em tempo real
+   */
+  public async getCryptoExchangeRate(fromCurrency: string, toCurrency: string = 'USD'): Promise<{
+    from: string;
+    to: string;
+    rate: number;
+    timestamp: string;
+  } | null> {
+    try {
+      const normalizedSymbol = this.normalizeSymbol(fromCurrency);
+      if (!normalizedSymbol) {
+        logTrading(`⚠️ Alpha Vantage: Símbolo ${fromCurrency} não suportado para taxa de câmbio`);
+        return null;
+      }
+
+      const data = await this.makeRequest({
+        function: 'CURRENCY_EXCHANGE_RATE',
+        from_currency: normalizedSymbol,
+        to_currency: toCurrency
+      });
+      
+      // Verificar se há erro específico da API
+      if (data['Error Message'] && data['Error Message'].includes('Invalid API call')) {
+        logTrading(`⚠️ Alpha Vantage: Símbolo ${fromCurrency} não suportado pelo endpoint CURRENCY_EXCHANGE_RATE`);
+        return null;
+      }
+      
+      const exchangeRate = data['Realtime Currency Exchange Rate'];
+      if (!exchangeRate) {
+        logTrading(`⚠️ Alpha Vantage: Nenhuma taxa de câmbio encontrada para ${fromCurrency}/${toCurrency}`);
+        return null;
+      }
+      
+      const result = {
+        from: exchangeRate['1. From_Currency Code'],
+        to: exchangeRate['3. To_Currency Code'],
+        rate: parseFloat(exchangeRate['5. Exchange Rate']),
+        timestamp: exchangeRate['6. Last Refreshed']
+      };
+      
+      logTrading(`💱 Alpha Vantage: Taxa de câmbio ${fromCurrency}/${toCurrency}`, {
+        rate: result.rate,
+        timestamp: result.timestamp
+      });
+      
+      return result;
+      
+    } catch (error: any) {
+      // Tratar especificamente "Invalid API call" como não suportado, não erro crítico
+      if (error?.message?.includes('Invalid API call')) {
+        logTrading(`⚠️ Alpha Vantage: Símbolo ${fromCurrency} não suportado para taxa de câmbio (Invalid API call)`);
+        return null;
+      }
+      // Outros erros logamos mas não quebramos o fluxo
+      logTrading(`⚠️ Alpha Vantage: Erro ao obter taxa de câmbio ${fromCurrency}/${toCurrency} - continuando sem esses dados`);
+      return null;
+    }
+  }
+
+  /**
+   * ✅ NOVO: Obter dados intradiários de criptomoeda
+   */
+  public async getCryptoIntraday(symbol: string, interval: string = '5min', market: string = 'USD'): Promise<{
+    symbol: string;
+    interval: string;
+    data: Array<{
+      timestamp: string;
+      open: number;
+      high: number;
+      low: number;
+      close: number;
+      volume: number;
+    }>;
+  } | null> {
+    try {
+      const data = await this.makeRequest({
+        function: 'CRYPTO_INTRADAY',
+        symbol: symbol,
+        market: market,
+        interval: interval
+      });
+      
+      const timeSeries = data[`Time Series Crypto (${interval})`];
+      if (!timeSeries) {
+        logTrading(`⚠️ Alpha Vantage: Nenhum dado intradiário encontrado para ${symbol}`);
+        return null;
+      }
+      
+      const dataPoints = Object.entries(timeSeries)
+        .map(([timestamp, values]: [string, any]) => ({
+          timestamp,
+          open: parseFloat(values['1. open']),
+          high: parseFloat(values['2. high']),
+          low: parseFloat(values['3. low']),
+          close: parseFloat(values['4. close']),
+          volume: parseFloat(values['5. volume'])
+        }))
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      
+      logTrading(`📊 Alpha Vantage: Dados intradiários obtidos para ${symbol}`, {
+        interval,
+        dataPoints: dataPoints.length,
+        latestPrice: dataPoints[dataPoints.length - 1]?.close
+      });
+      
+      return {
+        symbol,
+        interval,
+        data: dataPoints
+      };
+      
+    } catch (error) {
+      logger.error(`❌ Alpha Vantage: Erro ao obter dados intradiários de ${symbol}:`, 'API', null, error as Error);
+      return null;
+    }
+  }
+
+  /**
+   * ✅ NOVO: Obter série temporal diária completa de crypto
+   */
+  public async getCryptoDailySeries(symbol: string, market: string = 'USD', days: number = 100): Promise<{
+    symbol: string;
+    data: Array<{
+      date: string;
+      open: number;
+      high: number;
+      low: number;
+      close: number;
+      volume: number;
+    }>;
+  } | null> {
+    try {
+      const data = await this.makeRequest({
+        function: 'DIGITAL_CURRENCY_DAILY',
+        symbol: symbol,
+        market: market
+      });
+      
+      const timeSeries = data['Time Series (Digital Currency Daily)'];
+      if (!timeSeries) {
+        logTrading(`⚠️ Alpha Vantage: Nenhuma série diária encontrada para ${symbol}`);
+        return null;
+      }
+      
+      const dataPoints = Object.entries(timeSeries)
+        .slice(0, days)
+        .map(([date, values]: [string, any]) => ({
+          date,
+          open: parseFloat(values['1a. open (USD)']),
+          high: parseFloat(values['2a. high (USD)']),
+          low: parseFloat(values['3a. low (USD)']),
+          close: parseFloat(values['4a. close (USD)']),
+          volume: parseFloat(values['5. volume'])
+        }))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      
+      logTrading(`📊 Alpha Vantage: Série diária obtida para ${symbol}`, {
+        days: dataPoints.length,
+        latestClose: dataPoints[dataPoints.length - 1]?.close
+      });
+      
+      return {
+        symbol,
+        data: dataPoints
+      };
+      
+    } catch (error) {
+      logger.error(`❌ Alpha Vantage: Erro ao obter série diária de ${symbol}:`, 'API', null, error as Error);
+      return null;
+    }
+  }
+
+  /**
+   * ✅ NOVO: Obter indicadores técnicos aplicados a crypto (RSI)
+   */
+  public async getCryptoRSI(symbol: string, interval: string = 'daily', period: number = 14): Promise<TechnicalIndicator | null> {
+    try {
+      // Para crypto, primeiro obtemos dados intradiários/diários e então calculamos RSI
+      // Ou podemos usar a API de technical indicators se disponível para crypto
+      // Por enquanto, usamos DIGITAL_CURRENCY_DAILY e calculamos internamente
+      const cryptoData = await this.getCryptoDailySeries(symbol, 'USD', period + 20);
+      
+      if (!cryptoData || cryptoData.data.length < period + 1) {
+        logTrading(`⚠️ Alpha Vantage: Dados insuficientes para calcular RSI de ${symbol}`);
+        return null;
+      }
+      
+      // Calcular RSI localmente
+      const closes = cryptoData.data.map(d => d.close);
+      const rsiValues = this.calculateRSILocal(closes, period);
+      
+      const values = cryptoData.data.slice(period).map((d, idx) => ({
+        date: d.date,
+        value: rsiValues[idx]
+      }));
+      
+      return {
+        symbol,
+        indicator: 'RSI',
+        timeframe: interval,
+        values
+      };
+      
+    } catch (error) {
+      logger.error(`❌ Alpha Vantage: Erro ao obter RSI de crypto ${symbol}:`, 'API', null, error as Error);
+      return null;
+    }
+  }
+
+  /**
+   * ✅ NOVO: Calcular RSI localmente (helper)
+   */
+  private calculateRSILocal(prices: number[], period: number = 14): number[] {
+    const rsiValues: number[] = [];
+    
+    for (let i = period; i < prices.length; i++) {
+      const slice = prices.slice(i - period, i + 1);
+      const gains: number[] = [];
+      const losses: number[] = [];
+      
+      for (let j = 1; j < slice.length; j++) {
+        const change = slice[j] - slice[j - 1];
+        if (change > 0) {
+          gains.push(change);
+          losses.push(0);
+        } else {
+          gains.push(0);
+          losses.push(Math.abs(change));
+        }
+      }
+      
+      const avgGain = gains.reduce((a, b) => a + b, 0) / period;
+      const avgLoss = losses.reduce((a, b) => a + b, 0) / period;
+      
+      if (avgLoss === 0) {
+        rsiValues.push(100);
+      } else {
+        const rs = avgGain / avgLoss;
+        const rsi = 100 - (100 / (1 + rs));
+        rsiValues.push(rsi);
+      }
+    }
+    
+    return rsiValues;
   }
 
   /**

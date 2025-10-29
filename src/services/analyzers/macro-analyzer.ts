@@ -2,6 +2,8 @@
 // MACRO ANALYZER - Análise Macro Econômica
 // ============================================================================
 
+import { alphaVantageClient } from '../alpha-vantage-client';
+
 export interface MacroAnalysis {
   fedPolicy: 'dovish' | 'hawkish';
   dxy: number;                     // DXY forte = BTC fraco
@@ -40,12 +42,31 @@ export class MacroAnalyzer {
   }
   
   /**
-   * Obtém política do Fed
+   * Obtém política do Fed (usando Alpha Vantage para dados econômicos)
    */
   private async getFedPolicy(): Promise<'dovish' | 'hawkish'> {
-    // TODO: Integrar API econômica
-    // Por enquanto retorna neutro-dovish (mercado de risco favorable)
-    return 'dovish';
+    try {
+      // Buscar dados econômicos Alpha Vantage (GDP e Inflação)
+      const economicData = await alphaVantageClient.getCompleteEconomicData();
+      
+      if (economicData.gdp && economicData.inflation) {
+        // GDP crescendo + inflação controlada = dovish (favorável para risco)
+        // GDP caindo OU inflação alta = hawkish (desfavorável para risco)
+        const gdpTrend = economicData.gdp.value > 0 ? 1 : -1;
+        const inflationRisk = economicData.inflation.value > 3 ? -1 : 1;
+        
+        const score = gdpTrend + inflationRisk;
+        
+        return score > 0 ? 'dovish' : 'hawkish';
+      }
+      
+      // Fallback: retorna neutro-dovish
+      return 'dovish';
+      
+    } catch (error) {
+      console.warn('⚠️ Macro Analyzer: Erro ao buscar dados do Fed, usando padrão:', error);
+      return 'dovish'; // Padrão conservador (favorável)
+    }
   }
   
   /**
@@ -72,21 +93,22 @@ export class MacroAnalyzer {
   }
   
   /**
-   * Calcula score macro (-2 a +2)
+   * Calcula score macro (-2 a +2) melhorado com Alpha Vantage
    */
   private calculateMacroScore(data: any): number {
     let score = 0;
     
-    // Fed Policy
+    // Fed Policy (peso: 40%)
     if (data.fedPolicy === 'dovish') score += 1;   // Favorável
     else score -= 1;                                // Hawkish = desfavorável
     
-    // DXY (índice do dólar) - invertido para crypto
-    if (data.dxy > 105) score -= 1;  // DXY forte = crypto fraco
-    else if (data.dxy < 102) score += 1; // DXY fraco = crypto forte
+    // DXY (índice do dólar) - invertido para crypto (peso: 30%)
+    if (data.dxy > 105) score -= 0.6;  // DXY forte = crypto fraco
+    else if (data.dxy < 102) score += 0.6; // DXY fraco = crypto forte
     
-    // SP500 correlation
-    if (data.sp500Correlation > 0.6) score += 0.5; // Correlação positiva é bom
+    // SP500 correlation (peso: 30%)
+    if (data.sp500Correlation > 0.7) score += 0.6; // Correlação forte = bom
+    else if (data.sp500Correlation < 0.3) score -= 0.3; // Baixa correlação pode indicar isolamento
     
     return Math.max(-2, Math.min(2, score));
   }

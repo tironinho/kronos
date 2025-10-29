@@ -78,17 +78,19 @@ export async function initializeKronosXSystem(): Promise<void> {
       await logger.info(SystemAction.SystemStart, 'Binance API conectada com sucesso');
     }
 
-    // 5. Inicializa sistema WebSocket
+    // 5. Inicializa sistema WebSocket (opcional - não crítico para funcionamento básico)
     await logger.info(SystemAction.SystemStart, 'Inicializando sistema WebSocket...');
     try {
       await startWebSocketSystem();
       await logger.info(SystemAction.SystemStart, 'Sistema WebSocket iniciado com sucesso');
     } catch (error) {
+      // ✅ WebSocket não é crítico - sistema pode funcionar sem ele
       await logger.warn(
         SystemAction.ErrorHandling,
-        'Erro ao iniciar WebSocket - continuando sem dados em tempo real',
+        'Erro ao iniciar WebSocket - continuando sem dados em tempo real (não crítico)',
         error as Error
       );
+      // Não relançar erro para não bloquear inicialização
     }
 
     // 6. Configura atualizações automáticas

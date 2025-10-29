@@ -182,7 +182,7 @@ export async function GET(request: NextRequest) {
         messages_sent: wsStats.messagesSent,
         errors: wsStats.errors,
         uptime: wsStats.uptime,
-        connection_state: wsManager.getConnectionState()
+        connection_state: wsManager.isConnected() ? 'connected' : 'disconnected'
       },
       
       // Configurações

@@ -50,7 +50,7 @@ export interface WebSocketStats {
 // ============================================================================
 
 export class WebSocketManager extends EventEmitter {
-  private static instance: WebSocketManager;
+  private static instance: WebSocketManager | null = null;
   private logger = getComponentLogger(SystemComponent.WebSocket);
   
   private ws: WebSocket | null = null;
@@ -98,34 +98,99 @@ export class WebSocketManager extends EventEmitter {
    * Conecta ao WebSocket
    */
   public async connect(): Promise<void> {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.logger.info(SystemAction.SystemStart, 'WebSocket já está conectado');
+      return;
+    }
+
+    // ✅ Validar URL antes de conectar
+    if (!this.config.url || !this.config.url.startsWith('wss://')) {
+      this.logger.warn(SystemAction.SystemStart, 'URL do WebSocket inválida ou não configurada, pulando conexão', {
+        url: this.config.url
+      });
+      return;
+    }
+
     try {
-      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        this.logger.warn(SystemAction.DataProcessing, 'WebSocket já está conectado');
-        return;
-      }
+      this.ws = new WebSocket(this.config.url);
+      
+      this.ws.on('open', () => {
+        this.stats.connected = true;
+        this.reconnectAttempts = 0;
+        this.clearReconnectTimer();
+        
+        this.logger.info(SystemAction.SystemStart, 'WebSocket conectado', {
+          url: this.config.url
+        });
+        
+        this.startPingTimer();
+        this.emit('connected');
+      });
 
-      // Normaliza URL: Binance exige sufixo /ws para SUBSCRIBE/UNSUBSCRIBE API
-      const baseUrl = this.config.url.endsWith('/ws') || this.config.url.endsWith('/stream')
-        ? this.config.url
-        : `${this.config.url}/ws`;
-      this.logger.info(SystemAction.SystemStart, 'Conectando ao WebSocket', { url: baseUrl });
+      this.ws.on('message', (data: WebSocket.Data) => {
+        this.handleMessage(data);
+      });
 
-      this.ws = new WebSocket(baseUrl);
-      this.setupEventHandlers();
-      
-      await this.waitForConnection();
-      
-      this.stats.connected = true;
-      this.stats.reconnectAttempts = 0;
-      this.startPingTimer();
-      
-      this.logger.info(SystemAction.SystemStart, 'WebSocket conectado com sucesso');
-      this.emit('connected');
-      
+      this.ws.on('error', (error: Error) => {
+        this.stats.errors++;
+        // ✅ Não bloquear sistema com erros de WebSocket (não crítico)
+        const errorMessage = error.message || String(error);
+        if (errorMessage.includes('404') || errorMessage.includes('Unexpected server response')) {
+          this.logger.warn(SystemAction.ErrorHandling, 'WebSocket URL não encontrada (404) - pode ser normal se streams não estão configurados', {
+            url: this.config.url,
+            error: errorMessage.substring(0, 100)
+          });
+          // Não tentar reconectar se foi 404
+          this.reconnectAttempts = this.config.maxReconnectAttempts;
+        } else {
+          this.logger.error(SystemAction.ErrorHandling, 'Erro no WebSocket', error);
+        }
+        // Não emitir error para não quebrar sistema
+      });
+
+      this.ws.on('close', (code: number, reason: Buffer) => {
+        this.stats.connected = false;
+        this.stopPingTimer();
+        
+        const closeReason = reason?.toString() || 'Desconhecido';
+        
+        // ✅ Não tentar reconectar se foi erro 404 ou URL incorreta
+        if (code === 1006 && this.reconnectAttempts > 1) {
+          this.logger.warn(SystemAction.SystemStop, 'WebSocket não conectou - verificando configuração de URL', {
+            code,
+            url: this.config.url,
+            attempts: this.reconnectAttempts
+          });
+          return; // Não tentar reconectar mais
+        }
+        
+        this.logger.debug(SystemAction.SystemStop, 'WebSocket desconectado', {
+          code,
+          reason: closeReason
+        });
+        
+        this.emit('disconnected');
+        
+        // Tentar reconectar apenas se não excedeu limite
+        if (this.reconnectAttempts < this.config.maxReconnectAttempts) {
+          this.scheduleReconnect();
+        } else {
+          this.logger.warn(SystemAction.ErrorHandling, 'Máximo de tentativas de reconexão atingido - WebSocket desabilitado');
+        }
+      });
+
+      this.ws.on('pong', () => {
+        this.clearPongTimer();
+        this.logger.debug(SystemAction.DataProcessing, 'Pong recebido');
+      });
+
     } catch (error) {
-      this.logger.error(SystemAction.ErrorHandling, 'Erro ao conectar WebSocket', error as Error);
-      this.stats.errors++;
-      this.handleReconnect();
+      // ✅ Não lançar erro, apenas logar (WebSocket não é crítico)
+      this.logger.warn(SystemAction.ErrorHandling, 'Erro ao conectar WebSocket (não crítico)', {
+        error: (error as Error).message,
+        url: this.config.url
+      });
+      // Não throw para não quebrar inicialização do sistema
     }
   }
 
@@ -133,84 +198,13 @@ export class WebSocketManager extends EventEmitter {
    * Desconecta do WebSocket
    */
   public disconnect(): void {
-    try {
-      this.stopPingTimer();
-      this.clearReconnectTimer();
-      
-      if (this.ws) {
-        this.ws.close();
-        this.ws = null;
-      }
-      
-      this.stats.connected = false;
-      this.logger.info(SystemAction.SystemStop, 'WebSocket desconectado');
-      this.emit('disconnected');
-      
-    } catch (error) {
-      this.logger.error(SystemAction.ErrorHandling, 'Erro ao desconectar WebSocket', error as Error);
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
     }
-  }
-
-  /**
-   * Configura handlers de eventos do WebSocket
-   */
-  private setupEventHandlers(): void {
-    if (!this.ws) return;
-
-    this.ws.on('open', () => {
-      this.logger.info(SystemAction.SystemStart, 'Conexão WebSocket estabelecida');
-      this.stats.connected = true;
-      this.stats.reconnectAttempts = 0;
-      this.emit('open');
-    });
-
-    this.ws.on('message', (data: WebSocket.Data) => {
-      this.handleMessage(data);
-    });
-
-    this.ws.on('close', (code: number, reason: string) => {
-      this.logger.warn(SystemAction.ErrorHandling, 'WebSocket fechado', { code, reason });
-      this.stats.connected = false;
-      this.emit('close', code, reason);
-      this.handleReconnect();
-    });
-
-    this.ws.on('error', (error: Error) => {
-      this.logger.error(SystemAction.ErrorHandling, 'Erro no WebSocket', error as Error);
-      this.stats.errors++;
-      this.emit('error', error as Error);
-    });
-
-    this.ws.on('pong', () => {
-      this.logger.debug(SystemAction.DataProcessing, 'Pong recebido');
-      this.clearPongTimer();
-    });
-  }
-
-  /**
-   * Aguarda conexão ser estabelecida
-   */
-  private async waitForConnection(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!this.ws) {
-        reject(new Error('WebSocket não inicializado'));
-        return;
-      }
-
-      const timeout = setTimeout(() => {
-        reject(new Error('Timeout ao conectar WebSocket'));
-      }, 10000);
-
-      this.ws.once('open', () => {
-        clearTimeout(timeout);
-        resolve();
-      });
-
-      this.ws.once('error', (error) => {
-        clearTimeout(timeout);
-        reject(error);
-      });
-    });
+    this.clearReconnectTimer();
+    this.stopPingTimer();
+    this.stats.connected = false;
   }
 
   /**
@@ -218,24 +212,20 @@ export class WebSocketManager extends EventEmitter {
    */
   private handleMessage(data: WebSocket.Data): void {
     try {
-      this.stats.messagesReceived++;
-      this.stats.lastMessageTime = TimeUtils.now();
-      
       const message = JSON.parse(data.toString());
       
-      // Processa diferentes tipos de mensagem
       if (message.stream) {
         this.processStreamMessage(message);
       } else if (message.e) {
         this.processEventMessage(message);
-      } else {
-        this.logger.debug(SystemAction.DataProcessing, 'Mensagem WebSocket recebida', { message });
       }
       
-      this.emit('message', message);
+      this.stats.messagesReceived++;
+      this.stats.lastMessageTime = TimeUtils.now();
       
     } catch (error) {
-      this.logger.error(SystemAction.ErrorHandling, 'Erro ao processar mensagem WebSocket', error as Error);
+      this.logger.error(SystemAction.ErrorHandling, 'Erro ao processar mensagem WebSocket', 
+        error as Error);
       this.stats.errors++;
     }
   }
@@ -257,9 +247,13 @@ export class WebSocketManager extends EventEmitter {
     
     // Processa dados específicos
     if (streamName.includes('@trade')) {
-      this.processTradeData(data);
+      this.processTradeData(data).catch(err => {
+        this.logger.error(SystemAction.ErrorHandling, 'Erro ao processar trade data', err as Error);
+      });
     } else if (streamName.includes('@depth')) {
-      this.processDepthData(data);
+      this.processDepthData(data).catch(err => {
+        this.logger.error(SystemAction.ErrorHandling, 'Erro ao processar depth data', err as Error);
+      });
     } else if (streamName.includes('@ticker')) {
       this.processTickerData(data);
     }
@@ -268,7 +262,7 @@ export class WebSocketManager extends EventEmitter {
   /**
    * Processa dados de trade
    */
-  private processTradeData(data: any): void {
+  private async processTradeData(data: any): Promise<void> {
     try {
       const trade: TradeData = {
         price: parseFloat(data.p),
@@ -280,6 +274,31 @@ export class WebSocketManager extends EventEmitter {
       // Adiciona ao SignalEngine
       const signalEngine = getSignalEngine();
       signalEngine.addTrade(data.s, trade);
+
+      // ✅ HFT: Enviar para tick ingestion e feature store (lazy loading)
+      // Usar try-catch interno para não bloquear se módulos não estiverem disponíveis
+      try {
+        // Importação dinâmica com tratamento robusto de erros
+        const hftTickModule = await import('./hft/tick-ingestion').catch(() => null);
+        const hftFeatureModule = await import('./hft/feature-store').catch(() => null);
+        
+        if (hftTickModule?.tickIngestion && hftFeatureModule?.featureStore) {
+          // Criar tick para ingestão
+          const tick = await hftTickModule.tickIngestion.ingestTick(data, data.s);
+          if (tick) {
+            // Adicionar ao feature store (sem order book por enquanto)
+            await hftFeatureModule.featureStore.addTick(tick);
+          }
+        }
+      } catch (hftError) {
+        // Não bloquear se HFT falhar (não crítico para funcionamento básico)
+        // Silenciosamente falhar se módulos HFT não estiverem disponíveis
+        if (this.logger) {
+          this.logger.debug(SystemAction.DataProcessing, 'HFT processing skipped (non-critical)', { 
+            symbol: data.s
+          });
+        }
+      }
 
       // Emite evento de trade
       this.emit('trade', {
@@ -302,7 +321,7 @@ export class WebSocketManager extends EventEmitter {
   /**
    * Processa dados de depth
    */
-  private processDepthData(data: any): void {
+  private async processDepthData(data: any): Promise<void> {
     try {
       const depth: DepthData = {
         bids: data.b.map((bid: [string, string]) => [parseFloat(bid[0]), parseFloat(bid[1])]),
@@ -313,6 +332,36 @@ export class WebSocketManager extends EventEmitter {
       // Adiciona ao SignalEngine
       const signalEngine = getSignalEngine();
       signalEngine.addDepth(data.s, depth);
+
+      // ✅ HFT: Converter depth para OrderBookLevel e atualizar feature store (lazy loading)
+      try {
+        const hftFeatureModule = await import('./hft/feature-store').catch(() => null);
+        
+        if (hftFeatureModule?.featureStore) {
+          const orderBookLevels = [
+            ...depth.bids.map(([price, qty]: [number, number]) => ({
+              price,
+              quantity: qty,
+              side: 'bid' as const
+            })),
+            ...depth.asks.map(([price, qty]: [number, number]) => ({
+              price,
+              quantity: qty,
+              side: 'ask' as const
+            }))
+          ];
+          
+          // Atualizar order book no feature store
+          hftFeatureModule.featureStore.updateOrderBook(data.s, orderBookLevels);
+        }
+      } catch (hftError) {
+        // Não bloquear se HFT falhar (não crítico)
+        if (this.logger) {
+          this.logger.debug(SystemAction.DataProcessing, 'HFT depth processing skipped (non-critical)', {
+            symbol: data.s
+          });
+        }
+      }
 
       // Emite evento de depth
       this.emit('depth', {
@@ -374,186 +423,108 @@ export class WebSocketManager extends EventEmitter {
         this.processBalanceUpdate(message);
         break;
       default:
-        this.logger.debug(SystemAction.DataProcessing, 'Evento não processado', { event: message.e });
+        this.emit('event', message);
     }
   }
 
   /**
-   * Processa relatório de execução
+   * Processa execution report
    */
-  private processExecutionReport(data: any): void {
-    this.logger.info(SystemAction.TradeExecution, 'Ordem executada', {
-      symbol: data.s,
-      side: data.S,
-      quantity: data.q,
-      price: data.p,
-      status: data.X
+  private processExecutionReport(message: any): void {
+    this.logger.info(SystemAction.DataProcessing, 'Execution report recebido', {
+      symbol: message.s,
+      orderId: message.i,
+      status: message.X,
+      filledQty: message.z
     });
-
-    this.emit('execution_report', data);
+    
+    this.emit('execution', message);
   }
 
   /**
-   * Processa posição da conta
+   * Processa account position
    */
-  private processAccountPosition(data: any): void {
-    this.logger.info(SystemAction.DataProcessing, 'Posição da conta atualizada', {
-      balances: data.B
+  private processAccountPosition(message: any): void {
+    this.logger.info(SystemAction.DataProcessing, 'Account position atualizado', {
+      balances: message.B?.length || 0
     });
-
-    this.emit('account_position', data);
+    
+    this.emit('account', message);
   }
 
   /**
-   * Processa atualização de saldo
+   * Processa balance update
    */
-  private processBalanceUpdate(data: any): void {
-    this.logger.info(SystemAction.DataProcessing, 'Saldo atualizado', {
-      asset: data.a,
-      balance_delta: data.d,
-      clear_time: data.T
+  private processBalanceUpdate(message: any): void {
+    this.logger.debug(SystemAction.DataProcessing, 'Balance atualizado', {
+      asset: message.a,
+      delta: message.d
     });
-
-    this.emit('balance_update', data);
+    
+    this.emit('balance', message);
   }
 
   /**
    * Subscreve a um stream
    */
   public subscribe(stream: string, symbol: string, callback: (data: any) => void): void {
-    const subscriptionKey = `${stream}_${symbol}`;
-    const subscription: StreamSubscription = {
-      stream,
-      symbol,
-      callback
-    };
-
-    this.subscriptions.set(subscriptionKey, subscription);
+    const key = `${stream}_${symbol}`;
+    this.subscriptions.set(key, { stream, symbol, callback });
     
-    this.logger.info(SystemAction.DataProcessing, 'Stream subscrito', { stream, symbol });
-    
-    // Se conectado, envia comando de subscription
+    // Se já está conectado, enviar mensagem de subscribe
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.sendSubscriptionCommand(stream, symbol);
+      const streamName = `${symbol.toLowerCase()}@${stream}`;
+      const subscribeMessage = {
+        method: 'SUBSCRIBE',
+        params: [streamName],
+        id: Date.now()
+      };
+      
+      this.ws.send(JSON.stringify(subscribeMessage));
+      this.stats.messagesSent++;
+      
+      this.logger.info(SystemAction.DataProcessing, 'Subscrito a stream', {
+        stream: streamName
+      });
     }
   }
 
   /**
-   * Remove subscription de um stream
+   * Cancela subscrição
    */
   public unsubscribe(stream: string, symbol: string): void {
-    const subscriptionKey = `${stream}_${symbol}`;
-    this.subscriptions.delete(subscriptionKey);
+    const key = `${stream}_${symbol}`;
+    this.subscriptions.delete(key);
     
-    this.logger.info(SystemAction.DataProcessing, 'Stream removido', { stream, symbol });
-    
-    // Se conectado, envia comando de unsubscription
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.sendUnsubscriptionCommand(stream, symbol);
-    }
-  }
-
-  /**
-   * Envia comando de subscription
-   */
-  private sendSubscriptionCommand(stream: string, symbol: string): void {
-    const command = {
-      method: 'SUBSCRIBE',
-      params: [`${symbol.toLowerCase()}@${stream}`],
-      id: TimeUtils.now()
-    };
-
-    this.send(JSON.stringify(command));
-  }
-
-  /**
-   * Envia comando de unsubscription
-   */
-  private sendUnsubscriptionCommand(stream: string, symbol: string): void {
-    const command = {
-      method: 'UNSUBSCRIBE',
-      params: [`${symbol.toLowerCase()}@${stream}`],
-      id: TimeUtils.now()
-    };
-
-    this.send(JSON.stringify(command));
-  }
-
-  /**
-   * Envia mensagem
-   */
-  public send(data: string): void {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(data);
+      const streamName = `${symbol.toLowerCase()}@${stream}`;
+      const unsubscribeMessage = {
+        method: 'UNSUBSCRIBE',
+        params: [streamName],
+        id: Date.now()
+      };
+      
+      this.ws.send(JSON.stringify(unsubscribeMessage));
       this.stats.messagesSent++;
-    } else {
-      this.logger.warn(SystemAction.ErrorHandling, 'Tentativa de envio com WebSocket desconectado');
     }
   }
 
   /**
-   * Inicia timer de ping
+   * Agenda reconexão
    */
-  private startPingTimer(): void {
-    this.pingTimer = setInterval(() => {
-      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        this.ws.ping();
-        this.startPongTimer();
-      }
-    }, this.config.pingInterval);
-  }
-
-  /**
-   * Para timer de ping
-   */
-  private stopPingTimer(): void {
-    if (this.pingTimer) {
-      clearInterval(this.pingTimer);
-      this.pingTimer = null;
-    }
-    this.clearPongTimer();
-  }
-
-  /**
-   * Inicia timer de pong
-   */
-  private startPongTimer(): void {
-    this.clearPongTimer();
-    this.pongTimer = setTimeout(() => {
-      this.logger.warn(SystemAction.ErrorHandling, 'Pong timeout - reconectando');
-      this.handleReconnect();
-    }, this.config.pongTimeout);
-  }
-
-  /**
-   * Limpa timer de pong
-   */
-  private clearPongTimer(): void {
-    if (this.pongTimer) {
-      clearTimeout(this.pongTimer);
-      this.pongTimer = null;
-    }
-  }
-
-  /**
-   * Trata reconexão
-   */
-  private handleReconnect(): void {
-    if (this.reconnectAttempts >= this.config.maxReconnectAttempts) {
-      this.logger.error(SystemAction.ErrorHandling, 'Máximo de tentativas de reconexão atingido');
-      this.emit('max_reconnect_attempts');
+  private scheduleReconnect(): void {
+    if (this.reconnectTimer) {
       return;
     }
-
+    
     this.reconnectAttempts++;
     this.stats.reconnectAttempts = this.reconnectAttempts;
-
-    this.logger.info(SystemAction.ErrorHandling, 'Tentando reconectar', {
-      attempt: this.reconnectAttempts,
-      maxAttempts: this.config.maxReconnectAttempts
-    });
-
+    
     this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this.logger.info(SystemAction.SystemStart, 'Tentando reconectar...', {
+        attempt: this.reconnectAttempts
+      });
       this.connect();
     }, this.config.reconnectInterval);
   }
@@ -565,6 +536,62 @@ export class WebSocketManager extends EventEmitter {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+  }
+
+  /**
+   * Inicia ping timer
+   */
+  private startPingTimer(): void {
+    this.clearPingTimer();
+    
+    this.pingTimer = setInterval(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.ws.ping();
+        this.startPongTimer();
+      }
+    }, this.config.pingInterval);
+  }
+
+  /**
+   * Para ping timer
+   */
+  private stopPingTimer(): void {
+    this.clearPingTimer();
+    this.clearPongTimer();
+  }
+
+  /**
+   * Limpa ping timer
+   */
+  private clearPingTimer(): void {
+    if (this.pingTimer) {
+      clearInterval(this.pingTimer);
+      this.pingTimer = null;
+    }
+  }
+
+  /**
+   * Inicia pong timer
+   */
+  private startPongTimer(): void {
+    this.clearPongTimer();
+    
+    this.pongTimer = setTimeout(() => {
+      this.logger.warn(SystemAction.ErrorHandling, 'Pong timeout - fechando conexão');
+      if (this.ws) {
+        this.ws.close();
+      }
+    }, this.config.pongTimeout);
+  }
+
+  /**
+   * Limpa pong timer
+   */
+  private clearPongTimer(): void {
+    if (this.pongTimer) {
+      clearTimeout(this.pongTimer);
+      this.pongTimer = null;
     }
   }
 
@@ -595,29 +622,30 @@ export class WebSocketManager extends EventEmitter {
     const baseUrl = this.config.url.endsWith('/ws') || this.config.url.endsWith('/stream')
       ? this.config.url
       : `${this.config.url}/ws`;
-    const userDataUrl = `${baseUrl}/${listenKey}`;
     
-    // Cria nova conexão para user data stream
-    const userDataWs = new WebSocket(userDataUrl);
+    const userStreamUrl = `${baseUrl}/${listenKey}`;
     
-    userDataWs.on('message', (data: WebSocket.Data) => {
+    // Criar nova conexão para user data stream
+    const userWs = new WebSocket(userStreamUrl);
+    
+    userWs.on('message', (data: WebSocket.Data) => {
       try {
         const message = JSON.parse(data.toString());
-        this.processEventMessage(message);
+        if (message.e) {
+          this.processEventMessage(message);
+        }
       } catch (error) {
         this.logger.error(SystemAction.ErrorHandling, 'Erro ao processar user data stream', error as Error);
       }
     });
-
-    userDataWs.on('error', (error: Error) => {
-      this.logger.error(SystemAction.ErrorHandling, 'Erro no user data stream', error as Error);
+    
+    this.logger.info(SystemAction.DataProcessing, 'Subscrito a user data stream', {
+      listenKey: listenKey.substring(0, 10) + '...'
     });
-
-    this.logger.info(SystemAction.DataProcessing, 'Subscrito a user data stream', { listenKey });
   }
 
   /**
-   * Obtém estatísticas do WebSocket
+   * Obtém estatísticas
    */
   public getStats(): WebSocketStats {
     this.stats.uptime = TimeUtils.now() - this.startTime;
@@ -625,41 +653,10 @@ export class WebSocketManager extends EventEmitter {
   }
 
   /**
-   * Verifica se está conectado
+   * Obtém status da conexão
    */
   public isConnected(): boolean {
-    return this.ws?.readyState === WebSocket.OPEN;
-  }
-
-  /**
-   * Obtém estado da conexão
-   */
-  public getConnectionState(): string {
-    if (!this.ws) return 'DISCONNECTED';
-    
-    switch (this.ws.readyState) {
-      case WebSocket.CONNECTING: return 'CONNECTING';
-      case WebSocket.OPEN: return 'OPEN';
-      case WebSocket.CLOSING: return 'CLOSING';
-      case WebSocket.CLOSED: return 'CLOSED';
-      default: return 'UNKNOWN';
-    }
-  }
-
-  /**
-   * Reseta estatísticas
-   */
-  public resetStats(): void {
-    this.stats = {
-      connected: false,
-      reconnectAttempts: 0,
-      lastMessageTime: 0,
-      messagesReceived: 0,
-      messagesSent: 0,
-      errors: 0,
-      uptime: 0
-    };
-    this.startTime = TimeUtils.now();
+    return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
   }
 }
 
@@ -668,14 +665,11 @@ export class WebSocketManager extends EventEmitter {
 // ============================================================================
 
 export class WebSocketServer extends EventEmitter {
-  private static instance: WebSocketServer;
+  private static instance: WebSocketServer | null = null;
   private logger = getComponentLogger(SystemComponent.WebSocket);
-  private clients: Set<WebSocket> = new Set();
-  private server: any = null;
-
-  private constructor() {
-    super();
-  }
+  
+  private server: WebSocket.Server | null = null;
+  private clients = new Set<WebSocket>();
 
   public static getInstance(): WebSocketServer {
     if (!WebSocketServer.instance) {
@@ -733,52 +727,54 @@ export class WebSocketServer extends EventEmitter {
    */
   public stop(): void {
     try {
+      // Fechar todas as conexões de clientes
+      for (const client of this.clients) {
+        try {
+          client.close();
+        } catch (error) {
+          // Ignorar erros ao fechar
+        }
+      }
+      this.clients.clear();
+
+      // Fechar servidor
       if (this.server) {
         this.server.close();
         this.server = null;
       }
-      
-      // Fecha todas as conexões de clientes
-      this.clients.forEach(client => {
-        client.close();
-      });
-      this.clients.clear();
-      
+
       this.logger.info(SystemAction.SystemStop, 'Servidor WebSocket parado');
-      
     } catch (error) {
       this.logger.error(SystemAction.ErrorHandling, 'Erro ao parar servidor WebSocket', error as Error);
     }
   }
 
   /**
-   * Processa mensagem do cliente
+   * Processa mensagem de cliente
    */
   private handleClientMessage(ws: WebSocket, message: WebSocket.Data): void {
     try {
       const data = JSON.parse(message.toString());
       
       switch (data.type) {
-        case 'subscribe_metrics':
-          // Cliente quer receber métricas em tempo real
-          this.logger.debug(SystemAction.DataProcessing, 'Cliente subscrito a métricas');
+        case 'subscribe':
+          // Subscrever a streams específicas
           break;
-        case 'ping':
-          this.sendToClient(ws, { type: 'pong', timestamp: TimeUtils.now() });
+        case 'unsubscribe':
+          // Cancelar subscrição
           break;
         default:
-          this.logger.debug(SystemAction.DataProcessing, 'Tipo de mensagem não reconhecido', { type: data.type });
+          this.logger.debug(SystemAction.DataProcessing, 'Mensagem de cliente recebida', { type: data.type });
       }
-      
     } catch (error) {
-      this.logger.error(SystemAction.ErrorHandling, 'Erro ao processar mensagem do cliente', error as Error);
+      this.logger.error(SystemAction.ErrorHandling, 'Erro ao processar mensagem de cliente', error as Error);
     }
   }
 
   /**
-   * Envia mensagem para cliente específico
+   * Envia mensagem para cliente
    */
-  private sendToClient(ws: WebSocket, message: WebSocketMessage): void {
+  private sendToClient(ws: WebSocket, message: any): void {
     try {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify(message));
@@ -789,16 +785,16 @@ export class WebSocketServer extends EventEmitter {
   }
 
   /**
-   * Envia mensagem para todos os clientes
+   * Broadcast para todos os clientes
    */
-  public broadcast(message: WebSocketMessage): void {
-    this.clients.forEach(client => {
+  public broadcast(message: any): void {
+    for (const client of this.clients) {
       this.sendToClient(client, message);
-    });
+    }
   }
 
   /**
-   * Envia métricas para todos os clientes
+   * Broadcast de métricas
    */
   public broadcastMetrics(): void {
     const metrics = getMetrics().getMetricsUpdate();
@@ -808,29 +804,16 @@ export class WebSocketServer extends EventEmitter {
       timestamp: TimeUtils.now()
     });
   }
-
-  /**
-   * Obtém número de clientes conectados
-   */
-  public getClientCount(): number {
-    return this.clients.size;
-  }
 }
 
 // ============================================================================
-// FUNÇÕES UTILITÁRIAS
+// EXPORTS E HELPERS
 // ============================================================================
 
-/**
- * Obtém instância do WebSocketManager
- */
 export function getWebSocketManager(): WebSocketManager {
   return WebSocketManager.getInstance();
 }
 
-/**
- * Obtém instância do WebSocketServer
- */
 export function getWebSocketServer(): WebSocketServer {
   return WebSocketServer.getInstance();
 }
@@ -879,17 +862,11 @@ export function stopWebSocketSystem(): void {
     server.stop();
     
     console.log('Sistema WebSocket parado');
-    
   } catch (error) {
     console.error('Erro ao parar sistema WebSocket:', error as Error);
   }
 }
 
-// ============================================================================
-// EXPORT DEFAULT
-// ============================================================================
-
 export default WebSocketManager;
 
-// Export instance for easy import
 export const webSocketService = new WebSocketManager();

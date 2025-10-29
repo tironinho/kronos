@@ -945,18 +945,46 @@ export class BinanceApiClient {
     if (!this.apiKey || !this.secretKey) throw new Error('API Key e Secret Key são obrigatórios');
     const futuresBaseUrl = this.baseUrl.replace('api.binance.com', 'fapi.binance.com');
 
-    // ✅ Buscar precisão do símbolo para ajustar stopPrice
+    // ✅ CORREÇÃO: Ajustar precisão do stopPrice baseado no tickSize e pricePrecision
     let adjustedStopPrice = stopPrice;
     try {
       const symbolInfo = await this.getFuturesSymbolInfo(symbol);
-      const priceFilter = symbolInfo?.filters?.find((f: any) => f.filterType === 'PRICE_FILTER');
-      if (priceFilter?.tickSize) {
-        const tickSize = parseFloat(priceFilter.tickSize);
-        adjustedStopPrice = Math.floor(stopPrice / tickSize) * tickSize;
+      if (symbolInfo) {
+        const priceFilter = symbolInfo.filters?.find((f: any) => f.filterType === 'PRICE_FILTER');
+        
+        if (priceFilter?.tickSize) {
+          const tickSize = parseFloat(priceFilter.tickSize);
+          // Usar Math.round para melhor precisão
+          const roundedToTick = Math.round(stopPrice / tickSize) * tickSize;
+          
+          // Calcular número de casas decimais baseado no tickSize
+          const tickSizeStr = tickSize.toString();
+          let decimalPlaces = 0;
+          if (tickSizeStr.includes('.')) {
+            decimalPlaces = tickSizeStr.split('.')[1].length;
+          } else if (tickSizeStr.includes('e-')) {
+            // Para notação científica como 1e-8
+            decimalPlaces = Math.abs(parseInt(tickSizeStr.split('e-')[1]));
+          }
+          
+          // Arredondar para o número correto de casas decimais
+          adjustedStopPrice = parseFloat(roundedToTick.toFixed(decimalPlaces));
+          
+          // Usar pricePrecision se disponível (mais confiável)
+          if (symbolInfo.pricePrecision !== undefined && symbolInfo.pricePrecision !== null) {
+            adjustedStopPrice = parseFloat(adjustedStopPrice.toFixed(symbolInfo.pricePrecision));
+          }
+        } else if (symbolInfo.pricePrecision !== undefined && symbolInfo.pricePrecision !== null) {
+          // Fallback: usar pricePrecision se tickSize não estiver disponível
+          adjustedStopPrice = parseFloat(stopPrice.toFixed(symbolInfo.pricePrecision));
+        }
       }
-      console.log(`🔧 Stop Price ajustado: ${stopPrice} → ${adjustedStopPrice} (tick=${priceFilter?.tickSize || 'n/a'})`);
+      const tickSizeInfo = symbolInfo?.filters?.find((f: any) => f.filterType === 'PRICE_FILTER')?.tickSize || 'n/a';
+      console.log(`🔧 Stop Price ajustado: ${stopPrice} → ${adjustedStopPrice} (tick=${tickSizeInfo}, precision=${symbolInfo?.pricePrecision ?? 'n/a'})`);
     } catch (error) {
-      console.warn(`⚠️ Não foi possível buscar precisão para ${symbol}, usando valor original`);
+      console.warn(`⚠️ Não foi possível buscar precisão para ${symbol}, usando valor original:`, error);
+      // Fallback: arredondar para 2 casas decimais (padrão para maioria dos pares)
+      adjustedStopPrice = parseFloat(stopPrice.toFixed(2));
     }
 
     const timestamp = Math.floor(Date.now() + this.timeOffsetMs);
@@ -1002,18 +1030,46 @@ export class BinanceApiClient {
     if (!this.apiKey || !this.secretKey) throw new Error('API Key e Secret Key são obrigatórios');
     const futuresBaseUrl = this.baseUrl.replace('api.binance.com', 'fapi.binance.com');
 
-    // ✅ Buscar precisão do símbolo para ajustar takeProfitPrice
+    // ✅ CORREÇÃO: Ajustar precisão do takeProfitPrice baseado no tickSize e pricePrecision
     let adjustedTakeProfitPrice = takeProfitPrice;
     try {
       const symbolInfo = await this.getFuturesSymbolInfo(symbol);
-      const priceFilter = symbolInfo?.filters?.find((f: any) => f.filterType === 'PRICE_FILTER');
-      if (priceFilter?.tickSize) {
-        const tickSize = parseFloat(priceFilter.tickSize);
-        adjustedTakeProfitPrice = Math.floor(takeProfitPrice / tickSize) * tickSize;
+      if (symbolInfo) {
+        const priceFilter = symbolInfo.filters?.find((f: any) => f.filterType === 'PRICE_FILTER');
+        
+        if (priceFilter?.tickSize) {
+          const tickSize = parseFloat(priceFilter.tickSize);
+          // Usar Math.round para melhor precisão
+          const roundedToTick = Math.round(takeProfitPrice / tickSize) * tickSize;
+          
+          // Calcular número de casas decimais baseado no tickSize
+          const tickSizeStr = tickSize.toString();
+          let decimalPlaces = 0;
+          if (tickSizeStr.includes('.')) {
+            decimalPlaces = tickSizeStr.split('.')[1].length;
+          } else if (tickSizeStr.includes('e-')) {
+            // Para notação científica como 1e-8
+            decimalPlaces = Math.abs(parseInt(tickSizeStr.split('e-')[1]));
+          }
+          
+          // Arredondar para o número correto de casas decimais
+          adjustedTakeProfitPrice = parseFloat(roundedToTick.toFixed(decimalPlaces));
+          
+          // Usar pricePrecision se disponível (mais confiável)
+          if (symbolInfo.pricePrecision !== undefined && symbolInfo.pricePrecision !== null) {
+            adjustedTakeProfitPrice = parseFloat(adjustedTakeProfitPrice.toFixed(symbolInfo.pricePrecision));
+          }
+        } else if (symbolInfo.pricePrecision !== undefined && symbolInfo.pricePrecision !== null) {
+          // Fallback: usar pricePrecision se tickSize não estiver disponível
+          adjustedTakeProfitPrice = parseFloat(takeProfitPrice.toFixed(symbolInfo.pricePrecision));
+        }
       }
-      console.log(`🔧 Take Profit Price ajustado: ${takeProfitPrice} → ${adjustedTakeProfitPrice} (tick=${priceFilter?.tickSize || 'n/a'})`);
+      const tickSizeInfo = symbolInfo?.filters?.find((f: any) => f.filterType === 'PRICE_FILTER')?.tickSize || 'n/a';
+      console.log(`🔧 Take Profit Price ajustado: ${takeProfitPrice} → ${adjustedTakeProfitPrice} (tick=${tickSizeInfo}, precision=${symbolInfo?.pricePrecision ?? 'n/a'})`);
     } catch (error) {
-      console.warn(`⚠️ Não foi possível buscar precisão para ${symbol}, usando valor original`);
+      console.warn(`⚠️ Não foi possível buscar precisão para ${symbol}, usando valor original:`, error);
+      // Fallback: arredondar para 2 casas decimais (padrão para maioria dos pares)
+      adjustedTakeProfitPrice = parseFloat(takeProfitPrice.toFixed(2));
     }
 
     const timestamp = Math.floor(Date.now() + this.timeOffsetMs);

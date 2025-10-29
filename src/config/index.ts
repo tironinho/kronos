@@ -68,7 +68,7 @@ const DEFAULT_ENGINE_ENV: EngineEnv = {
   dataRetentionDays: 7,
   logLatency: true,
   baseUrl: process.env.BINANCE_BASE_REST || 'https://api.binance.com',
-  wsUrl: process.env.BINANCE_BASE_WS || 'wss://stream.binance.com:9443',
+  wsUrl: process.env.BINANCE_BASE_WS || 'wss://stream.binance.com:9443/ws',
   snapshotDepth: 1000,
   snapshotIntervalMs: 60000,
   healthCheck: DEFAULT_HEALTH_CHECK

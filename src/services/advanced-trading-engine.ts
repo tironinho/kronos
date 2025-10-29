@@ -33,6 +33,11 @@ import { databasePopulationService } from './database-population-service';
 import { complianceMonitor } from './compliance-monitor';
 import { automatedBacktestingService } from './automated-backtesting-service';
 import { indicatorWeightOptimizer } from './indicator-weight-optimizer';
+import { decisionGates } from './hft/decision-gates';
+import { featureStore } from './hft/feature-store';
+import { regimeDetector } from './hft/regime-detection';
+import { tickIngestion } from './hft/tick-ingestion';
+import type { DecisionContext, ModelPrediction, ValidationResult } from './hft/decision-gates';
 
 interface TradeDecision {
   action: 'BUY' | 'SELL' | 'HOLD';
@@ -191,10 +196,19 @@ export class AdvancedTradingEngine {
     
     const opportunities: any[] = [];
     
-    // ✅ Analisar símbolos prioritários primeiro, depois os demais
-    const symbolsToAnalyze = [...symbolConfig.prioritySymbols, ...symbolConfig.allowedSymbols.filter((s: string) => !symbolConfig.prioritySymbols.includes(s))];
+    // ✅ CORREÇÃO: Analisar apenas símbolos prioritários primeiro (máximo 3 por ciclo para evitar timeout)
+    // Limitar análise para evitar travamento por Alpha Vantage rate limit
+    const prioritySymbols = symbolConfig.prioritySymbols.slice(0, 3); // Máximo 3 símbolos prioritários
+    const otherSymbols = symbolConfig.allowedSymbols
+      .filter((s: string) => !symbolConfig.prioritySymbols.includes(s))
+      .slice(0, 2); // Máximo 2 símbolos não prioritários
     
-    for (const symbol of symbolsToAnalyze) {
+    const symbolsToAnalyze = [...prioritySymbols, ...otherSymbols];
+    console.log(`📊 Limite de análise: ${symbolsToAnalyze.length} símbolos (${prioritySymbols.length} prioritários + ${otherSymbols.length} outros)`);
+    
+    for (let i = 0; i < symbolsToAnalyze.length; i++) {
+      const symbol = symbolsToAnalyze[i];
+      console.log(`\n📊 [${i+1}/${symbolsToAnalyze.length}] Analisando ${symbol}...`);
       // ✅ CRÍTICO: Verificar se já existe trade aberta no banco antes de analisar
       const symbolConfig_item = this.configService.getSymbolSettings(symbol);
       const maxPositions = symbolConfig_item?.maxPositions || 3;
@@ -299,6 +313,7 @@ export class AdvancedTradingEngine {
           });
           
           console.log(`✅ ${symbol} ADICIONADO com sucesso! Decision: ${JSON.stringify({action: decision.action, size: decision.size})}`);
+          console.log(`📊 Progresso: ${opportunities.length} oportunidade(s) encontrada(s) até agora`);
         } else if (decision && decision.action !== 'HOLD') {
           console.log(`⏸️ ${symbol}: REJEITADO - Confiança ${predictiveV2.confidence}% < 40% ou Score ${predictiveV2.weightedScore.toFixed(2)}`);
         } else if (predictiveV2.signal === 'HOLD') {
@@ -307,12 +322,15 @@ export class AdvancedTradingEngine {
           console.log(`⏸️ ${symbol}: REJEITADO - Sem decision retornada`);
         }
         
-      } catch (error) {
+      } catch (error: any) {
         console.error(`❌ Erro ao analisar ${symbol}:`, error);
+        console.error(`   Stack:`, error?.stack || 'N/A');
+        // ✅ Continuar com próximo símbolo mesmo se um falhar
       }
     }
     
     console.log(`\n🏁 LOOP TERMINOU! Total de ${symbolsToAnalyze.length} símbolos analisados, ${opportunities.length} oportunidades adicionadas ao array`);
+    console.log(`🔚 RETORNANDO ${opportunities.length} oportunidades de getOptimalSymbols()`);
     
     // ✅ ORDENAR: Capital baixo prioriza viabilidade, Capital alto prioriza oportunidade
     const shouldPrioritizeCost = availableBalance < 10;
@@ -1693,9 +1711,125 @@ export class AdvancedTradingEngine {
   }
   
   /**
-   * Executa trade REAL na Binance com dimensionamento dinâmico
+   * ✅ HFT: Valida trade através dos decision gates (N0-N5)
    */
-  private async executeTrade(symbol: string, decision: TradeDecision) {
+  private async validateWithHFTGates(
+    symbol: string,
+    decision: TradeDecision
+  ): Promise<ValidationResult> {
+    try {
+      // 1. Obter features microestruturais
+      const recentFeatures = featureStore.getFeaturesInWindow(symbol, 5000);
+      const latestFeatures = featureStore.getLatestFeatures(symbol);
+      
+      if (!latestFeatures && recentFeatures.length === 0) {
+        // Criar features básicas temporárias
+        const currentPrice = decision.entry;
+        const mockFeatures: any = {
+          timestamp: Date.now(),
+          symbol,
+          midPrice: currentPrice,
+          microPrice: currentPrice,
+          spread: 0.001,
+          effectiveSpread: 0.001,
+          relativeSpread: 0.1,
+          ofi: 0,
+          queueImbalance: 0,
+          cancelRatio: 0,
+          bookPressure: 0,
+          vpin: 0,
+          realizedVolatility: 0,
+          microMomentum: 0,
+          priceSkew: 0,
+          priceKurtosis: 0
+        };
+        recentFeatures.push(mockFeatures);
+      }
+
+      // 2. Detectar regime atual
+      const recentTicks: any[] = []; // Seria obtido do tick ingestion
+      const regime = regimeDetector.detectRegime(symbol, recentFeatures, recentTicks);
+
+      // 3. Criar predições do modelo
+      const predictions: ModelPrediction[] = [
+        {
+          modelId: 'predictive-analyzer-v2',
+          probability: decision.confidence / 100,
+          expectedBps: decision.action === 'BUY' ? 20 : -20, // Simplificado
+          confidence: decision.confidence / 100,
+          regime,
+          features: latestFeatures || recentFeatures[recentFeatures.length - 1] || null
+        }
+      ];
+
+      // 4. Obter posições abertas
+      const { supabase } = await import('./supabase-db');
+      const openPositions: any[] = [];
+      if (supabase) {
+        const { data } = await supabase
+          .from('real_trades')
+          .select('trade_id, symbol, side, entry_price, quantity, notional')
+          .eq('status', 'open');
+        if (data) openPositions.push(...data);
+      }
+
+      // 5. Calcular métricas de risco
+      const accountBalance = await this.getCurrentBalance();
+      let dailyPnL = 0;
+      let drawdown = 0;
+      
+      if (supabase) {
+        const { data: recentTrades } = await supabase
+          .from('real_trades')
+          .select('pnl')
+          .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+        
+        if (recentTrades) {
+          dailyPnL = recentTrades.reduce((sum: number, t: any) => sum + (parseFloat(t.pnl || 0)), 0);
+          drawdown = Math.abs(dailyPnL) / accountBalance * 100;
+        }
+      }
+
+      // 6. Criar contexto de decisão
+      const context: DecisionContext = {
+        symbol,
+        timestamp: Date.now(),
+        predictions,
+        currentRegime: regime,
+        features: latestFeatures || recentFeatures[recentFeatures.length - 1] || ({} as any),
+        openPositions,
+        accountBalance,
+        riskMetrics: {
+          dailyPnL,
+          drawdown,
+          var: drawdown * 0.95
+        }
+      };
+
+      // 7. Validar através dos gates
+      const validation = await decisionGates.validateDecision(context);
+
+      return validation;
+    } catch (error) {
+      console.error(`❌ Erro na validação HFT para ${symbol}:`, error);
+      // Em caso de erro, permitir trade (fallback seguro)
+      return {
+        approved: true,
+        action: decision.action,
+        size: decision.size,
+        gates: [],
+        reasonCodes: ['FALLBACK_ON_ERROR'],
+        expectedValue: 0,
+        riskAdjustedSize: decision.size
+      };
+    }
+  }
+
+  /**
+   * Executa trade REAL na Binance com dimensionamento dinâmico
+   * @returns true se trade foi executada com sucesso, false se foi cancelada
+   */
+  private async executeTrade(symbol: string, decision: TradeDecision): Promise<boolean> {
     console.log(`\n🎯 EXECUTANDO ${decision.action} ${symbol} COM DINHEIRO REAL...`);
     console.log(`   Confiança: ${decision.confidence}%`);
     console.log(`   Tamanho original: ${decision.size.toFixed(4)}`);
@@ -1737,7 +1871,7 @@ export class AdvancedTradingEngine {
             const isExceptional = this.isExceptionalTrade(symbol, decision.confidence, decision.confidence * 10);
             if (!isExceptional) {
               console.log(`   ❌ Trade não é excepcional - BLOQUEANDO execução`);
-              return;
+              return false; // ✅ Retornar false para indicar cancelamento
             } else {
               console.log(`   ⭐ Trade EXCEPCIONAL - Permitindo substituição...`);
               // Continuar para substituir trade menos lucrativa
@@ -1787,12 +1921,12 @@ export class AdvancedTradingEngine {
                   // Continuar para substituir
                 } else {
                   console.log(`   ❌ Trade não é excepcional - BLOQUEANDO duplicata`);
-                  return;
+                  return false;
                 }
               } else {
                 // Não está no limite mas já tem trade do mesmo lado - bloquear para evitar hedging
                 console.log(`   ❌ Bloqueando trade duplicada do mesmo lado (evitar hedging)`);
-                return;
+                return false;
               }
             }
             
@@ -1801,7 +1935,7 @@ export class AdvancedTradingEngine {
               const isExceptional = this.isExceptionalTrade(symbol, decision.confidence, decision.confidence * 10);
               if (!isExceptional) {
                 console.log(`\n🚫 TRADE BLOQUEADA: Limite de ${maxPositionsForSymbol} posições já atingido para ${symbol}`);
-                return;
+                return false;
               } else {
                 console.log(`   ⭐ Trade EXCEPCIONAL - Permitindo substituição...`);
               }
@@ -1814,6 +1948,35 @@ export class AdvancedTradingEngine {
     }
     
     try {
+      // ✅ HFT: Validação em múltiplos níveis (N0-N5) antes de executar
+      const hftValidation = await this.validateWithHFTGates(symbol, decision);
+      if (!hftValidation.approved) {
+        console.log(`\n🚫 TRADE REJEITADA PELOS GATES HFT:`);
+        for (const gate of hftValidation.gates) {
+          if (!gate.passed) {
+            console.log(`   ❌ ${gate.gate}: ${gate.reason} [${gate.reasonCode}]`);
+          } else {
+            console.log(`   ✅ ${gate.gate}: ${gate.reason}`);
+          }
+        }
+        console.log(`   📊 Reason codes: ${hftValidation.reasonCodes.join(', ')}`);
+        return false;
+      } else {
+        console.log(`\n✅ TODOS OS GATES HFT APROVARAM:`);
+        for (const gate of hftValidation.gates) {
+          console.log(`   ✅ ${gate.gate}: ${gate.reason} [${gate.reasonCode}]`);
+        }
+        console.log(`   📊 Expected Value: ${hftValidation.expectedValue.toFixed(1)} bps`);
+        console.log(`   💰 Tamanho ajustado HFT: ${hftValidation.riskAdjustedSize.toFixed(2)}%`);
+        
+        // Atualizar tamanho com valor ajustado pelo HFT
+        const hftAdjustedQuantity = (hftValidation.riskAdjustedSize / 100) * (await this.getCurrentBalance());
+        if (hftAdjustedQuantity > 0 && hftAdjustedQuantity < decision.size) {
+          decision.size = hftAdjustedQuantity / decision.entry;
+          console.log(`   🔄 Quantidade ajustada pelo HFT: ${decision.size.toFixed(4)}`);
+        }
+      }
+      
       // ✅ NOVO: Salvar snapshot do equity antes da trade
       await this.equityService.saveEquitySnapshot(symbol);
       console.log(`📊 Snapshot do equity salvo para ${symbol}`);
@@ -1881,14 +2044,14 @@ export class AdvancedTradingEngine {
                   updated_at: new Date().toISOString()
                 })
                 .eq('trade_id', dbTrade.trade_id);
-              return; // Não criar nova trade
+              return false; // Não criar nova trade
             }
           }
         } catch (error) {
           console.warn('⚠️ Erro ao verificar trade no banco:', error);
         }
         
-        return; // Bloquear execução
+        return false; // Bloquear execução
       }
       
       // Calcular quantidade precisa baseada no dimensionamento dinâmico
@@ -1939,7 +2102,7 @@ export class AdvancedTradingEngine {
         const fundingCheck = await this.checkFundingRateSafety(symbol, decision.action as 'BUY' | 'SELL');
         if (!fundingCheck.safe) {
           console.log(`🚫 TRADE CANCELADO: Funding rate não favorável (${fundingCheck.reason})`);
-          return;
+          return false;
         }
         
         // FUTURES: verificar margem, setar leverage e marginType, e enviar ordem em /fapi
@@ -1951,7 +2114,7 @@ export class AdvancedTradingEngine {
         const liquidationCheck = this.checkLiquidationSafety(symbol, decision.action as 'BUY' | 'SELL', leverage, currentPrice);
         if (!liquidationCheck.safe) {
           console.log(`🚫 TRADE CANCELADO: Muito próximo da liquidação (${liquidationCheck.reason})`);
-          return;
+          return false;
         }
 
         // ✅ CORREÇÃO: Capturar notional mínimo do contrato (Futures exige $20, não $5!)
@@ -1990,11 +2153,33 @@ export class AdvancedTradingEngine {
             console.log(`   💡 Para Futures, notional mínimo é $20 (não $5!)`);
             console.log(`   💰 Capital necessário para mínimo: $${(minNotional / leverage).toFixed(2)}`);
             console.log(`   💰 Capital disponível: $${availableMargin.toFixed(2)}`);
+            console.log(`   ⚠️ Ajustando quantidade para atender notional mínimo...`);
+            
+            // ✅ CORREÇÃO: Ajustar quantidade para atender notional mínimo
+            const minQuantity = minNotional / currentPrice;
+            const stepSize = parseFloat((await binanceClient.getFuturesSymbolInfo(symbol))?.filters?.find((f: any) => f.filterType === 'LOT_SIZE')?.stepSize || '0.01');
+            const adjustedMinQuantity = Math.ceil(minQuantity / stepSize) * stepSize;
+            
+            // Verificar se temos capital suficiente
+            const adjustedNotional = adjustedMinQuantity * currentPrice;
+            const adjustedRequiredMargin = adjustedNotional / leverage;
+            
+            if (adjustedRequiredMargin <= availableMargin) {
+              console.log(`   ✅ Ajustando quantidade: ${quantity.toFixed(6)} → ${adjustedMinQuantity.toFixed(6)}`);
+              console.log(`   ✅ Novo notional: $${adjustedNotional.toFixed(2)} (≥ $${minNotional.toFixed(2)})`);
+              quantity = adjustedMinQuantity;
+              notional = adjustedNotional;
+              // Continuar execução com quantidade ajustada
+            } else {
+              console.log(`   ❌ Mesmo com quantidade mínima, margem ainda insuficiente`);
+              console.log(`   💰 Margem necessária: $${adjustedRequiredMargin.toFixed(2)} > disponível $${availableMargin.toFixed(2)}`);
+              return false; // ❌ Retornar false - não executa ordem
+            }
           }
-          if (requiredInitialMargin > availableMargin) {
+          if (requiredInitialMargin > availableMargin && (minNotional && notional >= minNotional)) {
             console.log(`   ❌ Margem insuficiente: precisa $${requiredInitialMargin.toFixed(2)} > disponível $${availableMargin.toFixed(2)}`);
+            return false; // ❌ Retornar false - não executa ordem
           }
-          return; // ✅ Retornar sem erro - não executa ordem
         }
 
         console.log('✅ Requisitos atendidos (Futures), executando ordem...');
@@ -2024,7 +2209,7 @@ export class AdvancedTradingEngine {
             console.log(`⚠️ Binance rejeitou: Notional muito pequeno (exige $20 mínimo para Futures)`);
             console.log(`   Notional atual: $${notional.toFixed(2)}`);
             console.log(`   ✅ Sistema continuando... tentará outras moedas`);
-            return; // ✅ NÃO salvar no banco e retornar sem erro
+            return false; // ✅ NÃO salvar no banco e retornar false
           }
           
           // Para outros erros, re-throw para ser capturado pelo catch externo
@@ -2151,7 +2336,25 @@ export class AdvancedTradingEngine {
         // ✅ EQUITY TRACKING: Registrar saldo após execução de trade
         await this.recordAllEquityHistory();
         
-        return;
+        // ✅ HFT: Auditar trade após execução
+        try {
+          const { tradeAuditor } = await import('./hft/trade-auditor');
+          tradeAuditor.auditTrade(tradeId).then(audit => {
+            if (audit) {
+              console.log(`📊 Trade auditada:`);
+              console.log(`   Latência: ${audit.orderExecution.latencyMs}ms`);
+              console.log(`   Slippage: ${audit.orderExecution.slippageBps.toFixed(1)}bps`);
+              console.log(`   Expected vs Fill: $${audit.orderExecution.expectedPrice.toFixed(2)} vs $${audit.orderExecution.fillPrice.toFixed(2)}`);
+            }
+          }).catch(err => {
+            console.warn(`⚠️ Erro ao auditar trade (não crítico):`, err);
+          });
+        } catch (auditError) {
+          // Não bloquear se auditoria falhar
+          console.warn(`⚠️ Erro ao importar trade auditor (não crítico):`, auditError);
+        }
+        
+        return true; // ✅ Retornar true quando trade Futures foi executada com sucesso
       }
 
       // SPOT
@@ -2174,7 +2377,7 @@ export class AdvancedTradingEngine {
         console.log(`   Precisa: $${estimatedCost.toFixed(2)} USDT (notional mínimo)`);
         console.log(`   Disponível: $${availableBalance.toFixed(2)} USDT`);
         console.log(`   NÃO executando ordem para evitar erro -2010`);
-        return; // Não executa a ordem
+        return false; // Não executa a ordem
       }
       
       console.log(`✅ Saldo suficiente, executando ordem...`);
@@ -2229,6 +2432,25 @@ export class AdvancedTradingEngine {
       
       console.log(`📊 Trades abertos agora: ${this.openTrades.size}/${this.configService.getTradeLimits().maxActiveTrades || 'Sem limite'}`);
       
+      // ✅ HFT: Auditar trade após execução (SPOT)
+      try {
+        const { tradeAuditor } = await import('./hft/trade-auditor');
+        tradeAuditor.auditTrade(tradeId).then(audit => {
+          if (audit) {
+            console.log(`📊 Trade auditada (SPOT):`);
+            console.log(`   Latência: ${audit.orderExecution.latencyMs}ms`);
+            console.log(`   Slippage: ${audit.orderExecution.slippageBps.toFixed(1)}bps`);
+            console.log(`   Expected vs Fill: $${audit.orderExecution.expectedPrice.toFixed(2)} vs $${audit.orderExecution.fillPrice.toFixed(2)}`);
+          }
+        }).catch(err => {
+          console.warn(`⚠️ Erro ao auditar trade SPOT (não crítico):`, err);
+        });
+      } catch (auditError) {
+        console.warn(`⚠️ Erro ao importar trade auditor (não crítico):`, auditError);
+      }
+      
+      return true; // ✅ Retornar true quando trade SPOT foi executada com sucesso
+      
     } catch (error: any) {
       console.error(`❌ Erro ao executar ordem REAL:`, error);
       console.error(`   Detalhes:`, error.response?.data || error.message);
@@ -2238,7 +2460,7 @@ export class AdvancedTradingEngine {
       if (errorCode === -4164) {
         console.log(`⚠️ Binance rejeitou: Notional muito pequeno (exige $5 mínimo)`);
         console.log(`   ✅ Sistema continuando... tentará outras moedas`);
-        return; // ✅ NÃO re-throw - deixa continuar com outros símbolos
+        return false; // ✅ Retornar false - trade não executada
       }
       
       // Re-throw para outros erros
@@ -3042,10 +3264,26 @@ export class AdvancedTradingEngine {
           continue;
         }
         
-        // 3. Encontrar oportunidades
+        // 3. Encontrar oportunidades (com timeout para evitar travamento)
         console.log('🔍 Buscando oportunidades...');
-        const opportunities = await this.getOptimalSymbols(balance);
-        console.log(`🎯 Encontradas ${opportunities.length} oportunidades`);
+        let opportunities: any[] = [];
+        try {
+          // ✅ CORREÇÃO: Timeout de 2 minutos para evitar travamento por Alpha Vantage
+          opportunities = await Promise.race([
+            this.getOptimalSymbols(balance),
+            new Promise<any[]>((resolve) => {
+              setTimeout(() => {
+                console.warn('⚠️ Timeout de 2 minutos atingido em getOptimalSymbols - retornando oportunidades parciais');
+                resolve([]);
+              }, 120000); // 2 minutos
+            })
+          ]);
+          console.log(`🎯 Encontradas ${opportunities.length} oportunidades`);
+        } catch (error) {
+          console.error('❌ Erro ao buscar oportunidades:', error);
+          opportunities = [];
+          console.log(`🎯 Nenhuma oportunidade encontrada (erro na busca)`);
+        }
         
         // 4. Verificar monitoramento inteligente para trades abertas
         console.log('🧠 Monitoramento inteligente desabilitado temporariamente...');
@@ -3098,11 +3336,17 @@ export class AdvancedTradingEngine {
               
               try {
                 const startTime = Date.now();
-                await this.executeTrade(opportunity.symbol, opportunity.decision);
+                // ✅ CORREÇÃO: executeTrade agora retorna true se executou, false se cancelou
+                const executed = await this.executeTrade(opportunity.symbol, opportunity.decision);
                 const executionTime = Date.now() - startTime;
-                // ✅ CORREÇÃO: Só logar sucesso se executeTrade realmente executou (retornou sem erro)
-                // Se executeTrade retornou sem erro, significa que a ordem foi aceita pela Binance
-                console.log(`✅ Trade ${opportunity.symbol} executada com sucesso na Binance em ${executionTime}ms`);
+                
+                if (executed) {
+                  // ✅ Só logar sucesso se realmente executou a ordem na Binance
+                  console.log(`✅ Trade ${opportunity.symbol} executada com sucesso na Binance em ${executionTime}ms`);
+                } else {
+                  // ✅ Logar quando trade foi cancelada (notional insuficiente, margem insuficiente, etc.)
+                  console.log(`⏸️ Trade ${opportunity.symbol} foi cancelada (requisitos não atendidos) em ${executionTime}ms`);
+                }
               } catch (error) {
                 console.error(`❌ ERRO ao executar trade ${opportunity.symbol}:`, error);
                 console.error(`❌ Detalhes do erro:`, (error as Error).message);

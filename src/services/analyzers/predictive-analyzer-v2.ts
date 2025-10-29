@@ -11,6 +11,7 @@ import { smartMoneyAnalyzer } from './smartmoney-analyzer';
 import { coinGeckoAPI } from './coingecko-api';
 import { fearGreedAPI } from './fear-greed-api';
 import { cryptoPanicAPI } from './cryptopanic-api';
+import { alphaVantageCryptoAnalyzer } from './alpha-vantage-crypto-analyzer';
 
 export interface PredictiveAnalysisV2 {
   scores: {
@@ -75,13 +76,14 @@ export class PredictiveAnalyzerV2 {
     ]);
     
     // ✅ NOVAS APIs GRATUITAS: Buscar dados em paralelo
-    const [coingeckoScore, fearGreedScore, newsScore] = await Promise.all([
+    const [coingeckoScore, fearGreedScore, newsScore, alphaVantageScore] = await Promise.all([
       coinGeckoAPI.calculateVolumeScore(symbol).catch(() => 0),
       fearGreedAPI.calculateSentimentScore().catch(() => 0),
-      cryptoPanicAPI.calculateNewsScore(symbol, 6).catch(() => 0)
+      cryptoPanicAPI.calculateNewsScore(symbol, 6).catch(() => 0),
+      this.getAlphaVantageScore(symbol).catch(() => 0) // ✅ NOVO: Alpha Vantage
     ]);
     
-    console.log(`🔍 [APIS GRATUITAS] CoinGecko: ${coingeckoScore.toFixed(2)} | Fear&Greed: ${fearGreedScore.toFixed(2)} | Notícias: ${newsScore.toFixed(2)}`);
+    console.log(`🔍 [APIS GRATUITAS] CoinGecko: ${coingeckoScore.toFixed(2)} | Fear&Greed: ${fearGreedScore.toFixed(2)} | Notícias: ${newsScore.toFixed(2)} | AlphaVantage: ${alphaVantageScore.toFixed(2)}`);
     
     // Normalizar scores para -10 a +10
     // ✅ FIX: socialVolume deve ser normalizado para 0-1 antes de passar para normalizeToScore
@@ -95,7 +97,9 @@ export class PredictiveAnalyzerV2 {
       // ✅ NOVOS: APIs gratuitas
       coingecko: this.normalizeToScore(coingeckoScore, 1),
       feargreed: this.normalizeToScore(fearGreedScore, 1),
-      news: this.normalizeToScore(newsScore, 1)
+      news: this.normalizeToScore(newsScore, 1),
+      // ✅ NOVO: Alpha Vantage (já vem no formato -10 a +10, só normaliza)
+      alphavantage: alphaVantageScore / 10 // Normalizar de -10/+10 para -1/+1, depois será escalado
     };
     
     // 🔍 DEBUG: Mostrar scores individuais
@@ -109,6 +113,7 @@ export class PredictiveAnalyzerV2 {
     console.log(`   CoinGecko: ${scores.coingecko.toFixed(2)} (weight: 0.02)`);
     console.log(`   Fear & Greed: ${scores.feargreed.toFixed(2)} (weight: 0.02)`);
     console.log(`   Notícias: ${scores.news.toFixed(2)} (weight: 0.01)`);
+    console.log(`   Alpha Vantage: ${scores.alphavantage.toFixed(2)} (weight: 0.05)`);
     
     // ✅ NOVO: Calcular score PONDERADO ignorando indicadores zerados
     const scoreData = [
@@ -120,7 +125,8 @@ export class PredictiveAnalyzerV2 {
       { name: 'smartmoney', score: scores.smartmoney, weight: this.weights.smartmoney },
       { name: 'coingecko', score: scores.coingecko, weight: 0.02 },
       { name: 'feargreed', score: scores.feargreed, weight: 0.02 },
-      { name: 'news', score: scores.news, weight: 0.01 }
+      { name: 'news', score: scores.news, weight: 0.01 },
+      { name: 'alphavantage', score: scores.alphavantage, weight: 0.05 } // ✅ NOVO: Peso 5% para Alpha Vantage
     ];
     
     // Filtrar apenas indicadores com dados (não zerados)
@@ -197,6 +203,27 @@ export class PredictiveAnalyzerV2 {
     const limited = Math.max(-2, Math.min(2, value));
     // Escalar para -10 a +10
     return limited * 5 * volume;
+  }
+
+  /**
+   * ✅ NOVO: Obtém score Alpha Vantage para o símbolo
+   */
+  private async getAlphaVantageScore(symbol: string): Promise<number> {
+    try {
+      const analysis = await alphaVantageCryptoAnalyzer.analyze(symbol);
+      if (!analysis || analysis.dataQuality === 'low') {
+        return 0; // Retorna 0 se dados de baixa qualidade
+      }
+      
+      // Retorna o score Alpha Vantage (-10 a +10)
+      // Ajustado pela confiança
+      const confidenceMultiplier = analysis.confidence / 100;
+      return analysis.alphaVantageScore * confidenceMultiplier;
+      
+    } catch (error) {
+      console.warn(`⚠️ [Alpha Vantage] Erro ao obter score para ${symbol}:`, error);
+      return 0;
+    }
   }
   
   /**
