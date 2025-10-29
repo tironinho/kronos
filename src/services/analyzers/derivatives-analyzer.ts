@@ -53,7 +53,7 @@ export class DerivativesAnalyzer {
   private async getFundingRate(symbol: string): Promise<number> {
     try {
       const fundingRate = await this.binanceClient.getFundingRate(symbol);
-      return parseFloat(fundingRate.lastFundingRate || '0');
+      return parseFloat(fundingRate.fundingRate || '0');
     } catch (error) {
       console.warn('Erro ao buscar funding rate:', error);
       return 0;

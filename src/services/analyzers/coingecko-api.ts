@@ -98,7 +98,7 @@ export class CoinGeckoAPI {
   async getPrice(symbol: string): Promise<number> {
     try {
       const data = await this.getMarketData(symbol);
-      return data?.market_data?.current_price?.usd || 0;
+      return (data as any)?.market_data?.current_price?.usd || 0;
     } catch (error: any) {
       console.error(`❌ Erro ao buscar preço CoinGecko para ${symbol}:`, error.message);
       return 0;
@@ -111,7 +111,7 @@ export class CoinGeckoAPI {
   async getVolume24h(symbol: string): Promise<number> {
     try {
       const data = await this.getMarketData(symbol);
-      return data?.market_data?.total_volume?.usd || 0;
+      return (data as any)?.market_data?.total_volume?.usd || 0;
     } catch (error: any) {
       console.error(`❌ Erro ao buscar volume CoinGecko para ${symbol}:`, error.message);
       return 0;
@@ -139,7 +139,7 @@ export class CoinGeckoAPI {
       const data = await this.getMarketData(symbol);
       if (!data) return 0;
 
-      const { total_volume: volume, price_change_percentage_24h: priceChange } = data.market_data;
+      const { total_volume: volume, price_change_percentage_24h: priceChange } = (data as any).market_data;
 
       let score = 0;
 

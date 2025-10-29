@@ -201,7 +201,7 @@ export class SystemLogger {
 	/**
 	 * Atualiza estatísticas de log
 	 */
-	private updateStatistics(log: SystemLog): void {
+	private updateStatistics(log: any): void {
 		this.statistics.total_logs++;
 		this.statistics.logs_by_level[log.level]++;
 		this.statistics.logs_by_component[log.component]++;
@@ -224,7 +224,7 @@ export class SystemLogger {
 	/**
 	 * Log no Winston
 	 */
-	private logToWinston(log: SystemLog): void {
+	private logToWinston(log: any): void {
 		const winstonLevel = log.level === LogLevel.CRITICAL ? 'error' : log.level;
 		
 		logger.log(winstonLevel, log.message, {

@@ -79,7 +79,7 @@ export class AdvancedRiskManagementModule {
       this.supabase = createClient(supabaseUrl, supabaseKey);
       logger.info('✅ AdvancedRiskManagementModule: Supabase initialized', 'PERFORMANCE');
     } catch (error) {
-      logger.error('❌ AdvancedRiskManagementModule: Failed to initialize Supabase:', 'PERFORMANCE', null, error);
+      logger.error('❌ AdvancedRiskManagementModule: Failed to initialize Supabase:', 'PERFORMANCE', null, error as Error);
       this.supabase = null;
     }
   }
@@ -158,7 +158,7 @@ export class AdvancedRiskManagementModule {
 
       return assessment;
     } catch (error) {
-      logger.error(`❌ Erro na avaliação de risco para ${symbol}:`, 'PERFORMANCE', null, error);
+      logger.error(`❌ Erro na avaliação de risco para ${symbol}:`, 'PERFORMANCE', null, error as Error);
       
       // Em caso de erro, ser conservador
       return {
@@ -251,7 +251,7 @@ export class AdvancedRiskManagementModule {
       };
 
     } catch (error) {
-      logger.error('❌ Erro ao atualizar métricas de risco:', 'PERFORMANCE', null, error);
+      logger.error('❌ Erro ao atualizar métricas de risco:', 'PERFORMANCE', null, error as Error);
       this.currentMetrics = this.getEmptyMetrics();
     }
   }

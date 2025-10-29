@@ -147,7 +147,7 @@ export class AlphaVantageClient {
       return response.data;
       
     } catch (error: any) {
-      logger.error(`❌ Alpha Vantage: Erro na requisição para ${params.function}:`, 'API', null, error);
+      logger.error(`❌ Alpha Vantage: Erro na requisição para ${params.function}:`, 'API', null, error as Error);
       throw error;
     }
   }
@@ -187,7 +187,7 @@ export class AlphaVantageClient {
       return result;
       
     } catch (error) {
-      logger.error(`❌ Alpha Vantage: Erro ao obter cotação de ${symbol}:`, 'API', null, error);
+      logger.error(`❌ Alpha Vantage: Erro ao obter cotação de ${symbol}:`, 'API', null, error as Error);
       return null;
     }
   }
@@ -233,7 +233,7 @@ export class AlphaVantageClient {
       return result;
       
     } catch (error) {
-      logger.error(`❌ Alpha Vantage: Erro ao obter RSI de ${symbol}:`, 'API', null, error);
+      logger.error(`❌ Alpha Vantage: Erro ao obter RSI de ${symbol}:`, 'API', null, error as Error);
       return null;
     }
   }
@@ -277,7 +277,7 @@ export class AlphaVantageClient {
       return result;
       
     } catch (error) {
-      logger.error(`❌ Alpha Vantage: Erro ao obter MACD de ${symbol}:`, 'API', null, error);
+      logger.error(`❌ Alpha Vantage: Erro ao obter MACD de ${symbol}:`, 'API', null, error as Error);
       return null;
     }
   }
@@ -322,7 +322,7 @@ export class AlphaVantageClient {
       };
       
     } catch (error) {
-      logger.error(`❌ Alpha Vantage: Erro ao obter Bollinger Bands de ${symbol}:`, 'API', null, error);
+      logger.error(`❌ Alpha Vantage: Erro ao obter Bollinger Bands de ${symbol}:`, 'API', null, error as Error);
       return null;
     }
   }
@@ -361,7 +361,7 @@ export class AlphaVantageClient {
       return result;
       
     } catch (error) {
-      logger.error(`❌ Alpha Vantage: Erro ao obter GDP:`, 'API', null, error);
+      logger.error(`❌ Alpha Vantage: Erro ao obter GDP:`, 'API', null, error as Error);
       return null;
     }
   }
@@ -399,7 +399,7 @@ export class AlphaVantageClient {
       return result;
       
     } catch (error) {
-      logger.error(`❌ Alpha Vantage: Erro ao obter inflação:`, 'API', null, error);
+      logger.error(`❌ Alpha Vantage: Erro ao obter inflação:`, 'API', null, error as Error);
       return null;
     }
   }
@@ -447,7 +447,7 @@ export class AlphaVantageClient {
       return results;
       
     } catch (error) {
-      logger.error(`❌ Alpha Vantage: Erro ao obter análise de sentimento:`, 'API', null, error);
+      logger.error(`❌ Alpha Vantage: Erro ao obter análise de sentimento:`, 'API', null, error as Error);
       return [];
     }
   }
@@ -491,7 +491,7 @@ export class AlphaVantageClient {
       return result;
       
     } catch (error) {
-      logger.error(`❌ Alpha Vantage: Erro ao obter cotação crypto de ${symbol}:`, 'API', null, error);
+      logger.error(`❌ Alpha Vantage: Erro ao obter cotação crypto de ${symbol}:`, 'API', null, error as Error);
       return null;
     }
   }
@@ -515,7 +515,7 @@ export class AlphaVantageClient {
         await new Promise(resolve => setTimeout(resolve, 1000));
         
       } catch (error) {
-        logger.error(`❌ Alpha Vantage: Erro ao obter cotação de ${symbol}:`, 'API', null, error);
+        logger.error(`❌ Alpha Vantage: Erro ao obter cotação de ${symbol}:`, 'API', null, error as Error);
       }
     }
     
@@ -557,7 +557,7 @@ export class AlphaVantageClient {
       };
       
     } catch (error) {
-      logger.error(`❌ Alpha Vantage: Erro na análise técnica completa de ${symbol}:`, 'API', null, error);
+      logger.error(`❌ Alpha Vantage: Erro na análise técnica completa de ${symbol}:`, 'API', null, error as Error);
       return {
         rsi: null,
         macd: null,
@@ -593,7 +593,7 @@ export class AlphaVantageClient {
       };
       
     } catch (error) {
-      logger.error(`❌ Alpha Vantage: Erro ao obter dados econômicos:`, 'API', null, error);
+      logger.error(`❌ Alpha Vantage: Erro ao obter dados econômicos:`, 'API', null, error as Error);
       return {
         gdp: null,
         inflation: null

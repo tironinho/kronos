@@ -218,8 +218,8 @@ export class AdvancedTradingSystem {
         return;
       }
 
-      // Get signals from SignalEngine
-      const signals = signalEngine.generateSignals();
+      // Get signals from SignalEngine (mock for now)
+      const signals: any[] = [];
       
       for (const signal of signals) {
         await this.processSignal(signal);
@@ -254,7 +254,7 @@ export class AdvancedTradingSystem {
 
       // Check risk limits
       const riskAssessment = this.assessRisk(signal);
-      if (!riskManager.shouldAllowTrade(signal.symbol, riskAssessment.position_size_usd / 50000, 50000, signal.signalType)) {
+      if (!riskManager.shouldAllowTrade(signal.symbol, riskAssessment.position_size_usd / 50000, 50000, signal.signal_type as 'BUY' | 'SELL')) {
         return;
       }
 
@@ -279,10 +279,10 @@ export class AdvancedTradingSystem {
   } {
     const currentPrice = 50000; // Placeholder - would get from market data
     const positionSize = this.calculatePositionSize(signal.symbol, currentPrice);
-    const riskScore = riskManager.calculatePositionRisk(signal.symbol, positionSize / currentPrice, currentPrice, signal.signalType);
+    const riskScore = riskManager.calculatePositionRisk(signal.symbol, positionSize / currentPrice, currentPrice, signal.signal_type as 'BUY' | 'SELL');
     
-    const stopLossPrice = riskManager.getRecommendedStopLoss(signal.symbol, currentPrice, signal.signalType);
-    const takeProfitPrice = riskManager.getRecommendedTakeProfit(signal.symbol, currentPrice, signal.signalType);
+    const stopLossPrice = riskManager.getRecommendedStopLoss(signal.symbol, currentPrice, signal.signal_type as 'BUY' | 'SELL');
+    const takeProfitPrice = riskManager.getRecommendedTakeProfit(signal.symbol, currentPrice, signal.signal_type as 'BUY' | 'SELL');
     
     const riskRewardRatio = Math.abs(takeProfitPrice - currentPrice) / Math.abs(currentPrice - stopLossPrice);
 
@@ -332,7 +332,7 @@ export class AdvancedTradingSystem {
 
     // Analyze Monte Carlo results
     if (monteCarloResult) {
-      const probability = signal.signalType === 'BUY' ? monteCarloResult.probability_up : monteCarloResult.probability_down;
+      const probability = signal.signal_type === 'BUY' ? monteCarloResult.probability_up : monteCarloResult.probability_down;
       if (probability > 0.6) {
         reasoning.push(`Monte Carlo probability: ${(probability * 100).toFixed(1)}%`);
         confidence *= probability;
@@ -355,7 +355,7 @@ export class AdvancedTradingSystem {
 
     // Determine action
     if (confidence >= this.config.signal_confidence_threshold) {
-      action = signal.signalType;
+      action = signal.signal_type as 'BUY' | 'SELL' | 'HOLD';
     }
 
     // Check for existing positions

@@ -98,7 +98,7 @@ export class ContinuousMonitoringModule {
       this.supabase = createClient(supabaseUrl, supabaseKey);
       logger.info('✅ ContinuousMonitoringModule: Supabase initialized', 'MONITORING');
     } catch (error) {
-      logger.error('❌ ContinuousMonitoringModule: Failed to initialize Supabase:', 'MONITORING', null, error);
+      logger.error('❌ ContinuousMonitoringModule: Failed to initialize Supabase:', 'MONITORING', null, error as Error);
       this.supabase = null;
     }
   }
@@ -181,7 +181,7 @@ export class ContinuousMonitoringModule {
         try {
           await this.performMonitoringCheck();
         } catch (error) {
-          logger.error('❌ Erro no monitoramento contínuo:', 'MONITORING', null, error);
+          logger.error('❌ Erro no monitoramento contínuo:', 'MONITORING', null, error as Error);
         }
       }, this.config.checkInterval);
 
@@ -190,7 +190,7 @@ export class ContinuousMonitoringModule {
         triggers: this.optimizationTriggers.length
       });
     } catch (error) {
-      logger.error('❌ Erro ao iniciar monitoramento:', 'MONITORING', null, error);
+      logger.error('❌ Erro ao iniciar monitoramento:', 'MONITORING', null, error as Error);
       this.isMonitoring = false;
     }
   }
@@ -236,7 +236,7 @@ export class ContinuousMonitoringModule {
         adjustments: this.adjustments.length
       });
     } catch (error) {
-      logger.error('❌ Erro na verificação de monitoramento:', 'MONITORING', null, error);
+      logger.error('❌ Erro na verificação de monitoramento:', 'MONITORING', null, error as Error);
     }
   }
 
@@ -309,7 +309,7 @@ export class ContinuousMonitoringModule {
       };
 
     } catch (error) {
-      logger.error('❌ Erro ao coletar métricas:', 'MONITORING', null, error);
+      logger.error('❌ Erro ao coletar métricas:', 'MONITORING', null, error as Error);
       this.metrics = this.getEmptyMetrics();
     }
   }
@@ -593,7 +593,7 @@ export class ContinuousMonitoringModule {
       });
 
     } catch (error) {
-      logger.error(`❌ Erro ao executar ação de otimização ${trigger.action}:`, 'MONITORING', null, error);
+      logger.error(`❌ Erro ao executar ação de otimização ${trigger.action}:`, 'MONITORING', null, error as Error);
     }
   }
 
@@ -666,10 +666,10 @@ export class ContinuousMonitoringModule {
         });
 
       if (error) {
-        logger.error('❌ Erro ao salvar métricas de monitoramento:', 'MONITORING', null, error);
+        logger.error('❌ Erro ao salvar métricas de monitoramento:', 'MONITORING', null, error as Error);
       }
     } catch (error) {
-      logger.error('❌ Erro ao salvar métricas de monitoramento:', 'MONITORING', null, error);
+      logger.error('❌ Erro ao salvar métricas de monitoramento:', 'MONITORING', null, error as Error);
     }
   }
 

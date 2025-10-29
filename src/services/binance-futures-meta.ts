@@ -103,7 +103,7 @@ export class BinanceFuturesMeta {
 
       return meta;
     } catch (error) {
-      logger.error(`❌ Erro ao buscar metadados FUTURES para ${symbol}:`, 'BINANCE', null, error);
+      logger.error(`❌ Erro ao buscar metadados FUTURES para ${symbol}:`, 'BINANCE', null, error as Error);
       throw error;
     }
   }
@@ -130,7 +130,7 @@ export class BinanceFuturesMeta {
       
       return price;
     } catch (error) {
-      logger.error(`❌ Erro ao buscar preço FUTURES para ${symbol}:`, 'BINANCE', null, error);
+      logger.error(`❌ Erro ao buscar preço FUTURES para ${symbol}:`, 'BINANCE', null, error as Error);
       throw error;
     }
   }
@@ -175,7 +175,7 @@ export class BinanceFuturesMeta {
       
       return klines;
     } catch (error) {
-      logger.error(`❌ Erro ao buscar klines FUTURES para ${symbol}:`, 'BINANCE', null, error);
+      logger.error(`❌ Erro ao buscar klines FUTURES para ${symbol}:`, 'BINANCE', null, error as Error);
       throw error;
     }
   }
@@ -208,7 +208,7 @@ export class BinanceFuturesMeta {
       
       return pricesMap;
     } catch (error) {
-      logger.error(`❌ Erro ao buscar preços FUTURES:`, 'BINANCE', null, error);
+      logger.error(`❌ Erro ao buscar preços FUTURES:`, 'BINANCE', null, error as Error);
       throw error;
     }
   }
@@ -234,7 +234,7 @@ export class BinanceFuturesMeta {
       
       return response.data;
     } catch (error) {
-      logger.error(`❌ Erro ao buscar informações da conta FUTURES:`, 'BINANCE', null, error);
+      logger.error(`❌ Erro ao buscar informações da conta FUTURES:`, 'BINANCE', null, error as Error);
       throw error;
     }
   }
@@ -264,7 +264,7 @@ export class BinanceFuturesMeta {
       
       return openPositions;
     } catch (error) {
-      logger.error(`❌ Erro ao buscar posições FUTURES:`, 'BINANCE', null, error);
+      logger.error(`❌ Erro ao buscar posições FUTURES:`, 'BINANCE', null, error as Error);
       throw error;
     }
   }

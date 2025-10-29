@@ -66,7 +66,7 @@ export class EnhancedDataCollector {
     try {
       // Verificar cache primeiro
       const cacheKey = `binance_futures:${symbol}`;
-      const cached = await cacheService.get(cacheKey);
+      const cached = await cacheService.get<BinanceFuturesData>(cacheKey);
       if (cached) {
         console.log(`📦 Dados Binance Futures para ${symbol} obtidos do cache`);
         return cached;
@@ -108,7 +108,7 @@ export class EnhancedDataCollector {
     try {
       // Verificar cache primeiro
       const cacheKey = 'market_sentiment';
-      const cached = await cacheService.get(cacheKey);
+      const cached = await cacheService.get<MarketSentimentData>(cacheKey);
       if (cached) {
         console.log('📦 Dados de sentiment obtidos do cache');
         return cached;

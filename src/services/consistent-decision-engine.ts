@@ -144,7 +144,7 @@ export class ConsistentDecisionEngine {
 
       return opportunity;
     } catch (error) {
-      logger.error(`❌ Erro ao processar ${symbol}:`, 'TRADING', null, error);
+      logger.error(`❌ Erro ao processar ${symbol}:`, 'TRADING', null, error as Error);
       return null;
     }
   }
@@ -296,7 +296,7 @@ export class ConsistentDecisionEngine {
 
       return order;
     } catch (error) {
-      logger.error(`❌ Erro ao preparar ordem para ${opportunity.symbol}:`, 'TRADING', null, error);
+      logger.error(`❌ Erro ao preparar ordem para ${opportunity.symbol}:`, 'TRADING', null, error as Error);
       return null;
     }
   }

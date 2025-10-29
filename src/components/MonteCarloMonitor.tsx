@@ -788,7 +788,7 @@ const MonteCarloMonitor: React.FC = () => {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Cache Hit Rate:</span>
-              <span className="text-sm font-semibold">{(performance?.cache_hit_rate * 100 || 0).toFixed(1)}%</span>
+                <span className="text-sm font-semibold">{(performance?.cache_hit_rate || 0) * 100}%</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Tempo Médio (ms):</span>

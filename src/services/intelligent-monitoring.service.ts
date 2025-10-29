@@ -1,7 +1,7 @@
 import { Logger } from './logger';
 import { AdvancedTradingEngine } from './advanced-trading-engine';
-import { BinanceApiService } from './binance-api';
-import { SupabaseService } from './supabase';
+import BinanceApiClient from './binance-api';
+// import { SupabaseService } from './supabase'; // Removed - not available
 
 export enum TrendDirection {
   BULLISH = 'bullish',
@@ -74,7 +74,7 @@ export class IntelligentMonitoringService {
   private readonly WHALE_ACTIVITY_THRESHOLD = 0.8;
   
   constructor() {
-    this.logger.log('🚀 Sistema de Monitoramento Inteligente inicializado');
+    this.logger.info('🚀 Sistema de Monitoramento Inteligente inicializado');
   }
 
   /**
@@ -89,7 +89,7 @@ export class IntelligentMonitoringService {
       }
       
     } catch (error) {
-      this.logger.error('❌ Erro no monitoramento do mercado:', error);
+      this.logger.error('❌ Erro no monitoramento do mercado:', (error as Error).message);
     }
   }
 
@@ -124,7 +124,7 @@ export class IntelligentMonitoringService {
       this.logAnalysis(symbol, trendAnalysis, whaleActivity, alerts, recommendations);
 
     } catch (error) {
-      this.logger.error(`❌ Erro ao analisar ${symbol}:`, error);
+      this.logger.error(`❌ Erro ao analisar ${symbol}:`, (error as Error).message);
     }
   }
 
@@ -142,7 +142,7 @@ export class IntelligentMonitoringService {
         volume: parseFloat(stats.volume)
       };
     } catch (error) {
-      this.logger.warn(`⚠️ Erro ao obter dados para ${symbol}:`, error.message);
+      this.logger.warn(`⚠️ Erro ao obter dados para ${symbol}:`, (error as Error).message);
       return null;
     }
   }
@@ -160,6 +160,8 @@ export class IntelligentMonitoringService {
     }
 
     const data = this.marketData.get(symbol);
+    if (!data) return;
+    
     data.prices.push(price);
     data.volumes.push(volume);
     data.timestamps.push(new Date());
@@ -627,7 +629,7 @@ export class IntelligentMonitoringService {
     const criticalAlerts = alerts.filter(alert => alert.severity === 'high');
 
     if (criticalAlerts.length > 0) {
-      this.logger.warn(`🚨 ALERTAS CRÍTICOS para ${symbol}:`, criticalAlerts);
+      this.logger.warn(`🚨 ALERTAS CRÍTICOS para ${symbol}:`, JSON.stringify(criticalAlerts));
 
       // Emite evento para o sistema de trading
       // Mock event emission para desenvolvimento
@@ -661,7 +663,7 @@ export class IntelligentMonitoringService {
         });
       }
     } catch (error) {
-      this.logger.error('❌ Erro ao salvar alertas no banco:', error);
+      this.logger.error('❌ Erro ao salvar alertas no banco:', (error as Error).message);
     }
   }
 
@@ -706,7 +708,7 @@ export class IntelligentMonitoringService {
       return { shouldClose: false, reason: 'Nenhum sinal crítico detectado' };
 
     } catch (error) {
-      this.logger.error(`❌ Erro ao verificar fechamento de trade ${tradeId}:`, error);
+      this.logger.error(`❌ Erro ao verificar fechamento de trade ${tradeId}:`, (error as Error).message);
       return { shouldClose: false, reason: 'Erro na análise' };
     }
   }
@@ -720,7 +722,7 @@ export class IntelligentMonitoringService {
       console.log('📊 Obtendo símbolos ativos para monitoramento');
       return ['BTCUSDT', 'ETHUSDT']; // Fallback para desenvolvimento
     } catch (error) {
-      this.logger.warn('⚠️ Erro ao obter símbolos ativos, usando fallback:', error.message);
+      this.logger.warn('⚠️ Erro ao obter símbolos ativos, usando fallback:', (error as Error).message);
       return ['BTCUSDT', 'ETHUSDT'];
     }
   }
@@ -730,14 +732,14 @@ export class IntelligentMonitoringService {
    */
   private logAnalysis(symbol: string, trendAnalysis: TrendAnalysis, whaleActivity: WhaleActivity, alerts: MarketAlert[], recommendations: MonitoringRecommendation): void {
     if (alerts.length > 0 || whaleActivity.level !== WhaleActivityLevel.LOW) {
-      this.logger.log(`📊 ${symbol}: Tendência=${trendAnalysis.direction}, Força=${trendAnalysis.strength.toFixed(2)}, Reversão=${trendAnalysis.reversalProbability.toFixed(2)}`);
-      this.logger.log(`🐋 ${symbol}: Atividade=${whaleActivity.level}, Manipulação=${whaleActivity.manipulationSignal}, Confiança=${whaleActivity.confidence.toFixed(2)}`);
+      this.logger.info(`📊 ${symbol}: Tendência=${trendAnalysis.direction}, Força=${trendAnalysis.strength.toFixed(2)}, Reversão=${trendAnalysis.reversalProbability.toFixed(2)}`);
+      this.logger.info(`🐋 ${symbol}: Atividade=${whaleActivity.level}, Manipulação=${whaleActivity.manipulationSignal}, Confiança=${whaleActivity.confidence.toFixed(2)}`);
       
       if (alerts.length > 0) {
         this.logger.warn(`🚨 ${symbol}: ${alerts.length} alerta(s) - ${alerts.map(a => a.type).join(', ')}`);
       }
       
-      this.logger.log(`🎯 ${symbol}: Ação recomendada = ${recommendations.finalAction}`);
+      this.logger.info(`🎯 ${symbol}: Ação recomendada = ${recommendations.finalAction}`);
     }
   }
 

@@ -112,27 +112,32 @@ export class NeutralScoring {
       {
         name: 'Technical',
         score: data.technical ?? null,
-        weight: this.FACTOR_WEIGHTS.TECHNICAL
+        weight: this.FACTOR_WEIGHTS.TECHNICAL,
+        originalWeight: this.FACTOR_WEIGHTS.TECHNICAL
       },
       {
         name: 'Sentiment',
         score: data.sentiment ?? null,
-        weight: this.FACTOR_WEIGHTS.SENTIMENT
+        weight: this.FACTOR_WEIGHTS.SENTIMENT,
+        originalWeight: this.FACTOR_WEIGHTS.SENTIMENT
       },
       {
         name: 'OnChain',
         score: data.onchain ?? null,
-        weight: this.FACTOR_WEIGHTS.ONCHAIN
+        weight: this.FACTOR_WEIGHTS.ONCHAIN,
+        originalWeight: this.FACTOR_WEIGHTS.ONCHAIN
       },
       {
         name: 'Derivatives',
         score: data.derivatives ?? null, // ✅ CORREÇÃO: null em vez de -5
-        weight: this.FACTOR_WEIGHTS.DERIVATIVES
+        weight: this.FACTOR_WEIGHTS.DERIVATIVES,
+        originalWeight: this.FACTOR_WEIGHTS.DERIVATIVES
       },
       {
         name: 'Macro',
         score: data.macro ?? null,
-        weight: this.FACTOR_WEIGHTS.MACRO
+        weight: this.FACTOR_WEIGHTS.MACRO,
+        originalWeight: this.FACTOR_WEIGHTS.MACRO
       },
       {
         name: 'SmartMoney',
@@ -152,7 +157,8 @@ export class NeutralScoring {
       {
         name: 'News',
         score: data.news ?? null,
-        weight: this.FACTOR_WEIGHTS.NEWS
+        weight: this.FACTOR_WEIGHTS.NEWS,
+        originalWeight: this.FACTOR_WEIGHTS.NEWS
       }
     ];
 

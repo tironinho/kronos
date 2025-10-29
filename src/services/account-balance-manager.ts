@@ -150,8 +150,8 @@ export class AccountBalanceManager {
           };
         });
 
-      const totalBalanceUsdt = balances.reduce((sum, bal) => sum + bal.usdt_value, 0);
-      const availableBalanceUsdt = balances.reduce((sum, bal) => sum + (bal.free * this.getAssetPrice(bal.asset)), 0);
+      const totalBalanceUsdt = balances.reduce((sum: number, bal: any) => sum + bal.usdt_value, 0);
+      const availableBalanceUsdt = balances.reduce((sum: number, bal: any) => sum + (bal.free * this.getAssetPrice(bal.asset)), 0);
       const lockedBalanceUsdt = totalBalanceUsdt - availableBalanceUsdt;
 
       this.currentBalance = {

@@ -438,7 +438,7 @@ export class AdvancedStatisticsService {
    */
   private calculateTemporalAnalysis(metrics: AdvancedMetrics, trades: TradeData[], equityData: EquityData[]) {
     // Retornos diários
-    metrics.dailyReturns = this.calculateDailyReturns(equityData);
+    metrics.dailyReturns = this.calculateDailyReturns(equityData).map(item => ({ ...item, trades: 0 }));
 
     // Retornos semanais
     metrics.weeklyReturns = this.calculateWeeklyReturns(equityData);

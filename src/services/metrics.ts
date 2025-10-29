@@ -553,13 +553,13 @@ export function getStatusSummary(): any {
  */
 export function updateSystemStatus(statusData: any): void {
   const metrics = getMetrics();
-  if (statusData.metrics) {
-    metrics.updateMetrics((data) => {
+  if (statusData.metrics && (metrics as any).updateMetrics) {
+    (metrics as any).updateMetrics((data: any) => {
       Object.assign(data, statusData.metrics);
     });
   }
-  if (statusData.performance) {
-    metrics.updateMetrics((data) => {
+  if (statusData.performance && (metrics as any).updateMetrics) {
+    (metrics as any).updateMetrics((data: any) => {
       Object.assign(data.performance, statusData.performance);
     });
   }

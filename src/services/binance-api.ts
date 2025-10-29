@@ -548,18 +548,22 @@ export class BinanceApiClient {
       if (arr.length > 0) {
         const last = arr[arr.length - 1];
         return [{
-          pair: symbol,
-          longShortRatio: parseFloat(last.longShortRatio || '0.5'),
-          timestamp: parseInt(last.timestamp || Date.now())
+          symbol: symbol,
+          longShortRatio: (last.longShortRatio || '0.5'),
+          longAccount: last.longAccount || '0',
+          shortAccount: last.shortAccount || '0',
+          timestamp: parseInt(last.timestamp || Date.now().toString())
         }];
       }
-      return [{ pair: symbol, longShortRatio: 0.5, timestamp: Date.now() }];
+      return [{ symbol: symbol, longShortRatio: '0.5', longAccount: '0', shortAccount: '0', timestamp: Date.now() }];
     } catch (error) {
       console.warn('⚠️ Erro ao buscar Long/Short ratio, retornando neutro:', error);
       // Retorna neutro em caso de erro
       return [{
-        pair: symbol,
-        longShortRatio: 0.5,
+        symbol: symbol,
+        longShortRatio: '0.5',
+        longAccount: '0',
+        shortAccount: '0',
         timestamp: Date.now()
       }];
     }
@@ -1200,10 +1204,10 @@ export class BinanceApiClient {
       let minNotionalFilter: any | undefined;
       let notionalFilter: any | undefined;
       if (symbolInfo) {
-        lotSizeFilter = symbolInfo.filters.find(f => f.filterType === 'LOT_SIZE');
+        lotSizeFilter = symbolInfo.filters.find(f => (f as any).filterType === 'LOT_SIZE' || f.filter_type === 'LOT_SIZE');
         // Suporta filtros antigos e novos: MIN_NOTIONAL e NOTIONAL
-        minNotionalFilter = symbolInfo.filters.find(f => (f as any).filterType === 'MIN_NOTIONAL');
-        notionalFilter = symbolInfo.filters.find(f => (f as any).filterType === 'NOTIONAL');
+        minNotionalFilter = symbolInfo.filters.find(f => (f as any).filterType === 'MIN_NOTIONAL' || (f as any).filter_type === 'MIN_NOTIONAL');
+        notionalFilter = symbolInfo.filters.find(f => (f as any).filterType === 'NOTIONAL' || (f as any).filter_type === 'NOTIONAL');
         console.log(`🔍 DEBUG: LOT_SIZE filter: ${lotSizeFilter ? 'SIM' : 'NÃO'}`);
         console.log(`🔍 DEBUG: MIN_NOTIONAL filter: ${minNotionalFilter ? `SIM (min: ${minNotionalFilter.minNotional})` : 'NÃO'}`);
         console.log(`🔍 DEBUG: NOTIONAL filter: ${notionalFilter ? 'SIM' : 'NÃO'}`);
@@ -1292,7 +1296,7 @@ export class BinanceApiClient {
       
     } catch (error) {
       console.error('❌ Erro ao buscar exchange info:', error);
-      throw new Error(`Não foi possível ajustar quantidade para ${symbol}. Erro: ${error.message}`);
+      throw new Error(`Não foi possível ajustar quantidade para ${symbol}. Erro: ${(error as Error).message}`);
     }
 
     try {
@@ -1843,4 +1847,4 @@ export async function checkBinanceApis(): Promise<{ status: string; details: any
 export default BinanceApiClient;
 
 // Export instance for easy import
-export const binanceApiClient = new BinanceApiClient();
+export const binanceApiClient = BinanceApiClient.getInstance();

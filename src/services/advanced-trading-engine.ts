@@ -28,6 +28,8 @@ import TradingConfigurationService from './trading-configuration-service';
 import CacheService from './cache-service';
 import EquityMonitoringService from './equity-monitoring-service';
 import { DynamicPositionSizingService } from './dynamic-position-sizing.service';
+import { tradePriceMonitor } from './trade-price-monitor.service';
+import { databasePopulationService } from './database-population-service';
 
 interface TradeDecision {
   action: 'BUY' | 'SELL' | 'HOLD';
@@ -150,12 +152,59 @@ export class AdvancedTradingEngine {
     console.log(`🚫 Símbolos bloqueados: ${symbolConfig.blacklistedSymbols.join(', ')}`);
     console.log(`⭐ Símbolos prioritários: ${symbolConfig.prioritySymbols.join(', ')}`);
     
+    // ✅ CRÍTICO: Buscar trades abertas do BANCO (fonte de verdade) antes de analisar
+    let dbOpenTradesBySymbol: { [key: string]: number } = {};
+    try {
+      const { supabase } = await import('./supabase-db');
+      if (supabase) {
+        const { data: dbTrades } = await supabase
+          .from('real_trades')
+          .select('symbol, side')
+          .eq('status', 'open');
+        
+        if (dbTrades && dbTrades.length > 0) {
+          // Contar trades por símbolo e lado
+          dbTrades.forEach(t => {
+            const key = `${t.symbol}_${t.side}`;
+            dbOpenTradesBySymbol[key] = (dbOpenTradesBySymbol[key] || 0) + 1;
+          });
+          
+          console.log(`📊 Trades abertas no banco: ${dbTrades.length}`);
+          const symbolCounts: { [key: string]: number } = {};
+          dbTrades.forEach(t => {
+            symbolCounts[t.symbol] = (symbolCounts[t.symbol] || 0) + 1;
+          });
+          
+          Object.entries(symbolCounts)
+            .filter(([_, count]) => count > 2)
+            .forEach(([symbol, count]) => {
+              console.log(`   ⚠️ ${symbol}: ${count} trades abertas`);
+            });
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ Erro ao verificar trades abertas do banco:', error);
+    }
+    
     const opportunities: any[] = [];
     
     // ✅ Analisar símbolos prioritários primeiro, depois os demais
     const symbolsToAnalyze = [...symbolConfig.prioritySymbols, ...symbolConfig.allowedSymbols.filter(s => !symbolConfig.prioritySymbols.includes(s))];
     
     for (const symbol of symbolsToAnalyze) {
+      // ✅ CRÍTICO: Verificar se já existe trade aberta no banco antes de analisar
+      const symbolConfig_item = this.configService.getSymbolSettings(symbol);
+      const maxPositions = symbolConfig_item?.maxPositions || 3;
+      
+      // Contar trades abertas deste símbolo no banco
+      const buyCount = dbOpenTradesBySymbol[`${symbol}_BUY`] || 0;
+      const sellCount = dbOpenTradesBySymbol[`${symbol}_SELL`] || 0;
+      const totalOpen = buyCount + sellCount;
+      
+      if (totalOpen >= maxPositions) {
+        console.log(`⏸️ ${symbol}: Já tem ${totalOpen} trades abertas (limite: ${maxPositions}) - Pulando análise`);
+        continue; // Pular símbolo que já está no limite
+      }
       try {
         // Buscar preço atual e informações do símbolo
         const binanceClient = getBinanceClient();
@@ -411,14 +460,14 @@ export class AdvancedTradingEngine {
         console.log(`   💰 P&L REAL (Binance): $${pnlValue.toFixed(4)} (${pnlPercentReal.toFixed(2)}%)`);
         console.log(`   📋 Debug: isolatedMargin=${isolatedMargin}, estimatedMargin=${initialMargin}`);
         
-        // ✅ AJUSTE: SL em -20% (safe para leverage 5x)
-        if (pnlPercentReal <= -20.0) {
+        // ✅ AJUSTE: SL em -15% (mais conservador) e TP em 25% (realista)
+        if (pnlPercentReal <= -15.0) {
           console.log(`\n🚨 STOP LOSS ATIVADO para ${trade.symbol}!`);
           console.log(`   P&L REAL: ${pnlPercentReal.toFixed(2)}%`);
           console.log(`   P&L USDT: $${pnlValue.toFixed(4)}`);
           await this.closeTrade(tradeId, 'stop_loss');
           continue;
-        } else if (pnlPercentReal >= 300.0) {
+        } else if (pnlPercentReal >= 25.0) {
           console.log(`\n🎯 TAKE PROFIT ATIVADO para ${trade.symbol}!`);
           console.log(`   P&L REAL: ${pnlPercentReal.toFixed(2)}%`);
           console.log(`   P&L USDT: $${pnlValue.toFixed(4)}`);
@@ -428,10 +477,10 @@ export class AdvancedTradingEngine {
           console.log(`   ✅ ${trade.symbol} dentro do limite. P&L: ${pnlPercentReal.toFixed(2)}%`);
         }
         
-        // ✅ TRAILING TAKE PROFIT: Acompanha o lucro e maximiza
-        if (pnlPercentReal > 50.0) {
-          // ✅ AJUSTE: Trail em 50%
-          const newTakeProfitPrice = currentPrice * (trade.side === 'BUY' ? 1.45 : 0.55); // Garantir 50% líquido mínimo
+        // ✅ TRAILING TAKE PROFIT: Acompanha o lucro e maximiza (ajustado para 25%)
+        if (pnlPercentReal > 15.0) {
+          // ✅ AJUSTE: Trail em 15% (mais conservador)
+          const newTakeProfitPrice = currentPrice * (trade.side === 'BUY' ? 1.10 : 0.90); // Garantir 15% líquido mínimo
           
           // Se o novo Take Profit é MAIOR que o anterior, atualizar (Trailing)
           const shouldTrail = trade.side === 'BUY' 
@@ -455,8 +504,8 @@ export class AdvancedTradingEngine {
               console.warn(`   ⚠️ Erro ao atualizar Take Profit na Binance:`, error.message);
             }
           }
-        } else if (pnlPercentReal >= 50.0) {
-          // ✅ AJUSTE: Take Profit em 50%
+        } else if (pnlPercentReal >= 25.0) {
+          // ✅ AJUSTE: Take Profit em 25% (realista)
           console.log(`🎯 TAKE PROFIT ATIVADO para ${trade.symbol}! P&L REAL: ${pnlPercentReal.toFixed(2)}%`);
           await this.closeTrade(tradeId, 'take_profit');
           continue;
@@ -1568,6 +1617,70 @@ export class AdvancedTradingEngine {
     console.log(`   Take Profit: $${decision.takeProfit.toFixed(2)}`);
     console.log(`   ⚠️⚠️⚠️ EXECUTANDO COM DINHEIRO REAL ⚠️⚠️⚠️`);
     
+    // ✅ CRÍTICO: Verificar se já existe trade aberta no BANCO DE DADOS (não só no Map)
+    try {
+      const { supabase } = await import('./supabase-db');
+      if (supabase) {
+        const { data: existingTrades, error: checkError } = await supabase
+          .from('real_trades')
+          .select('trade_id, symbol, side, status')
+          .eq('symbol', symbol)
+          .eq('status', 'open')
+          .limit(10);
+        
+        if (existingTrades && existingTrades.length > 0) {
+          const symbolConfig = this.configService.getSymbolSettings(symbol);
+          const maxPositionsForSymbol = symbolConfig?.maxPositions || this.configService.getConfig().riskManagement.maxPositionsPerSymbol;
+          
+          console.log(`\n⚠️ VERIFICAÇÃO DE DUPLICATAS:`);
+          console.log(`   Trades abertas em ${symbol} no banco: ${existingTrades.length}`);
+          console.log(`   Limite por símbolo: ${maxPositionsForSymbol}`);
+          
+          // ✅ MELHORIA CRÍTICA: Bloquear se já existe trade, independente do limite
+          // (o limite já foi verificado pelo canOpenTradeWithPriority)
+          if (existingTrades.length > 0) {
+            // Verificar se já existe trade com mesmo lado (BUY ou SELL)
+            const sameSideTrades = existingTrades.filter(t => t.side === decision.action);
+            
+            if (sameSideTrades.length > 0) {
+              console.log(`\n🚫 TRADE BLOQUEADA: Já existe trade ${decision.action} aberta para ${symbol}`);
+              console.log(`   Trades ${decision.action} existentes: ${sameSideTrades.length}`);
+              console.log(`   IDs: ${sameSideTrades.map(t => t.trade_id).join(', ')}`);
+              
+              // Só permitir se for trade excepcional E já está no limite de posições
+              if (existingTrades.length >= maxPositionsForSymbol) {
+                const isExceptional = this.isExceptionalTrade(symbol, decision.confidence, decision.confidence * 10);
+                if (isExceptional) {
+                  console.log(`   ⭐ Trade EXCEPCIONAL - Permitindo substituição...`);
+                  // Continuar para substituir
+                } else {
+                  console.log(`   ❌ Trade não é excepcional - BLOQUEANDO duplicata`);
+                  return;
+                }
+              } else {
+                // Não está no limite mas já tem trade do mesmo lado - bloquear para evitar hedging
+                console.log(`   ❌ Bloqueando trade duplicada do mesmo lado (evitar hedging)`);
+                return;
+              }
+            }
+            
+            // Se já está no limite de posições, verificar se deve substituir
+            if (existingTrades.length >= maxPositionsForSymbol) {
+              const isExceptional = this.isExceptionalTrade(symbol, decision.confidence, decision.confidence * 10);
+              if (!isExceptional) {
+                console.log(`\n🚫 TRADE BLOQUEADA: Limite de ${maxPositionsForSymbol} posições já atingido para ${symbol}`);
+                return;
+              } else {
+                console.log(`   ⭐ Trade EXCEPCIONAL - Permitindo substituição...`);
+              }
+            }
+          }
+        }
+      }
+    } catch (checkError) {
+      console.warn(`⚠️ Erro ao verificar trades existentes (continuando):`, checkError);
+    }
+    
     try {
       // ✅ NOVO: Salvar snapshot do equity antes da trade
       await this.equityService.saveEquitySnapshot(symbol);
@@ -1595,8 +1708,56 @@ export class AdvancedTradingEngine {
       const newQuantity = positionSizing.positionValue / decision.entry;
       console.log(`   Quantidade ajustada: ${decision.size.toFixed(4)} → ${newQuantity.toFixed(4)}`);
       
-      // Executar ordem REAL na Binance
+      // ✅ CRÍTICO: Verificar posições reais na Binance ANTES de executar
       const binanceClient = getBinanceClient();
+      const binancePositions = await binanceClient.getFuturesPositions();
+      const existingBinancePosition = binancePositions.find((p: any) => 
+        p.symbol === symbol && 
+        Math.abs(parseFloat(p.positionAmt || '0')) > 0
+      );
+      
+      if (existingBinancePosition) {
+        const positionAmt = parseFloat(existingBinancePosition.positionAmt || '0');
+        console.log(`\n⚠️ ATENÇÃO: Já existe posição REAL na Binance para ${symbol}:`);
+        console.log(`   Quantidade: ${positionAmt}`);
+        console.log(`   Entry Price: ${existingBinancePosition.entryPrice}`);
+        console.log(`   P&L não realizado: ${existingBinancePosition.unRealizedProfit}`);
+        console.log(`\n🚫 BLOQUEANDO nova trade para evitar duplicata/hedging`);
+        
+        // Atualizar trade no banco se existir
+        try {
+          const { supabase } = await import('./supabase-db');
+          if (supabase) {
+            const { data: dbTrade } = await supabase
+              .from('real_trades')
+              .select('trade_id')
+              .eq('symbol', symbol)
+              .eq('status', 'open')
+              .eq('side', decision.action)
+              .limit(1)
+              .single();
+            
+            if (dbTrade) {
+              console.log(`   ✅ Trade já existe no banco: ${dbTrade.trade_id}`);
+              // Apenas atualizar preço atual, não criar nova
+              const currentPrice = parseFloat(existingBinancePosition.markPrice || existingBinancePosition.entryPrice);
+              await supabase
+                .from('real_trades')
+                .update({
+                  current_price: currentPrice,
+                  pnl: parseFloat(existingBinancePosition.unRealizedProfit || '0'),
+                  updated_at: new Date().toISOString()
+                })
+                .eq('trade_id', dbTrade.trade_id);
+              return; // Não criar nova trade
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ Erro ao verificar trade no banco:', error);
+        }
+        
+        return; // Bloquear execução
+      }
       
       // Calcular quantidade precisa baseada no dimensionamento dinâmico
       const priceData = await binanceClient.getPrice(symbol);
@@ -1623,7 +1784,7 @@ export class AdvancedTradingEngine {
           console.log(`🔧 Precisão ajustada: ${quantity} → ${adjustedQuantity} (stepSize: ${stepSize})`);
           quantity = adjustedQuantity;
         } catch (precisionError) {
-          console.warn(`⚠️ Erro ao ajustar precisão: ${precisionError.message}`);
+          console.warn(`⚠️ Erro ao ajustar precisão: ${(precisionError as Error).message}`);
           console.log(`   Usando quantidade original: ${quantity}`);
         }
         
@@ -1643,7 +1804,7 @@ export class AdvancedTradingEngine {
         console.log(`✅ Notional: $${notional.toFixed(2)} - Binance decidirá se aceita ou não`);
         
         // FUTURES: Check funding rate antes do trade
-        const fundingCheck = await this.checkFundingRateSafety(symbol, decision.action);
+        const fundingCheck = await this.checkFundingRateSafety(symbol, decision.action as 'BUY' | 'SELL');
         if (!fundingCheck.safe) {
           console.log(`🚫 TRADE CANCELADO: Funding rate não favorável (${fundingCheck.reason})`);
           return;
@@ -1655,7 +1816,7 @@ export class AdvancedTradingEngine {
         try { await binanceClient.setFuturesLeverage(symbol, leverage); } catch {}
         
         // FUTURES: Check liquidation safety
-        const liquidationCheck = this.checkLiquidationSafety(symbol, decision.action, leverage, currentPrice);
+        const liquidationCheck = this.checkLiquidationSafety(symbol, decision.action as 'BUY' | 'SELL', leverage, currentPrice);
         if (!liquidationCheck.safe) {
           console.log(`🚫 TRADE CANCELADO: Muito próximo da liquidação (${liquidationCheck.reason})`);
           return;
@@ -1773,7 +1934,7 @@ export class AdvancedTradingEngine {
             // Criar Stop Loss
             const stopLossOrder = await binanceClient.createFuturesStopLoss(
               symbol,
-              decision.action,
+              decision.action as 'BUY' | 'SELL',
               finalQuantity,
               decision.stopLoss
             );
@@ -1782,7 +1943,7 @@ export class AdvancedTradingEngine {
             // Criar Take Profit
             const takeProfitOrder = await binanceClient.createFuturesTakeProfit(
               symbol,
-              decision.action,
+              decision.action as 'BUY' | 'SELL',
               finalQuantity,
               decision.takeProfit
             );
@@ -1813,7 +1974,7 @@ export class AdvancedTradingEngine {
           console.log(`⚠️ ATENÇÃO: Trades abertos sem proteção automática na Binance!`);
         }
 
-        console.log(`📊 Trades abertos agora: ${this.openTrades.size}/${tradeLimits.maxActiveTrades || 'Sem limite'}`);
+        console.log(`📊 Trades abertos agora: ${this.openTrades.size}/${this.configService.getTradeLimits().maxActiveTrades || 'Sem limite'}`);
         
         // ✅ NOVO: Incrementar contador de trades diárias
         this.dailyTradeCount++;
@@ -1898,7 +2059,7 @@ export class AdvancedTradingEngine {
         takeProfitSet: false
       });
       
-      console.log(`📊 Trades abertos agora: ${this.openTrades.size}/${tradeLimits.maxActiveTrades || 'Sem limite'}`);
+      console.log(`📊 Trades abertos agora: ${this.openTrades.size}/${this.configService.getTradeLimits().maxActiveTrades || 'Sem limite'}`);
       
     } catch (error: any) {
       console.error(`❌ Erro ao executar ordem REAL:`, error);
@@ -2461,21 +2622,19 @@ export class AdvancedTradingEngine {
       try {
         // Fechar 50% da posição
         if (trade.side === 'BUY') {
-          await binanceClient.placeFuturesOrder({
-            symbol: trade.symbol,
-            side: 'SELL',
-            type: 'MARKET',
-            quantity: closeQuantity,
-            reduceOnly: true
-          });
+          await binanceClient.createFuturesOrder(
+            trade.symbol,
+            'SELL',
+            'MARKET',
+            closeQuantity
+          );
         } else {
-          await binanceClient.placeFuturesOrder({
-            symbol: trade.symbol,
-            side: 'BUY',
-            type: 'MARKET',
-            quantity: closeQuantity,
-            reduceOnly: true
-          });
+          await binanceClient.createFuturesOrder(
+            trade.symbol,
+            'BUY',
+            'MARKET',
+            closeQuantity
+          );
         }
         
         trade.partialProfitTaken = true;
@@ -2613,6 +2772,14 @@ export class AdvancedTradingEngine {
     // Registrar equity inicial
     await this.recordEquityHistory('USDT_FUTURES', futuresBalance);
     
+    // ✅ NOVO: Iniciar monitoramento de preços das trades
+    await tradePriceMonitor.startMonitoring();
+    console.log('📊 Monitoramento de preços das trades iniciado');
+    
+    // ✅ NOVO: Iniciar serviço de preenchimento automático do banco
+    await databasePopulationService.start();
+    console.log('📊 Serviço de preenchimento automático do banco iniciado');
+    
     console.log(`✅ Trading Futures iniciado com sucesso! Saldo: $${futuresBalance.toFixed(2)}`);
     
     // ✅ NOVO: Iniciar loop principal de trading
@@ -2678,11 +2845,11 @@ export class AdvancedTradingEngine {
         if (opportunities.length === 0) {
           console.log('⏸️ Nenhuma oportunidade encontrada, aguardando próximo ciclo...');
         } else {
-          console.log(`🎯 Processando ${Math.min(opportunities.length, 2)} oportunidades (máximo 2 por ciclo)...`);
+          console.log(`🎯 Processando ${Math.min(opportunities.length, 5)} oportunidades (máximo 5 por ciclo)...`);
           
-          for (let i = 0; i < Math.min(opportunities.length, 2); i++) {
+          for (let i = 0; i < Math.min(opportunities.length, 5); i++) {
             const opportunity = opportunities[i];
-            console.log(`\n🔍 OPORTUNIDADE ${i + 1}/${Math.min(opportunities.length, 2)}: ${opportunity.symbol}`);
+            console.log(`\n🔍 OPORTUNIDADE ${i + 1}/${Math.min(opportunities.length, 5)}: ${opportunity.symbol}`);
             console.log(`   Action: ${opportunity.decision.action}`);
             console.log(`   Size: ${opportunity.decision.size}`);
             console.log(`   Confidence: ${opportunity.confidence}%`);
@@ -2720,10 +2887,10 @@ export class AdvancedTradingEngine {
                 console.log(`✅ Trade ${opportunity.symbol} executada com sucesso em ${executionTime}ms`);
               } catch (error) {
                 console.error(`❌ ERRO ao executar trade ${opportunity.symbol}:`, error);
-                console.error(`❌ Detalhes do erro:`, error.message);
-                if (error.response) {
-                  console.error(`❌ Status: ${error.response.status}`);
-                  console.error(`❌ Data:`, error.response.data);
+                console.error(`❌ Detalhes do erro:`, (error as Error).message);
+                if ((error as any).response) {
+                  console.error(`❌ Status: ${(error as any).response.status}`);
+                  console.error(`❌ Data:`, (error as any).response.data);
                 }
               }
             } else {
@@ -2734,7 +2901,14 @@ export class AdvancedTradingEngine {
           }
         }
         
-        // 5. Monitorar trades abertas
+        // 5. Sincronizar trades com Binance (CRÍTICO: garantir que banco está sincronizado)
+        console.log(`\n🔄 SINCRONIZAÇÃO COM BINANCE - Ciclo ${cycleCount}:`);
+        await this.syncTradesWithBinance();
+        
+        // 5.1. Verificar se há trades duplicadas e limpar
+        await this.cleanupDuplicateTrades();
+        
+        // 6. Monitorar trades abertas
         console.log(`\n🔍 MONITORAMENTO DE TRADES ABERTAS - Ciclo ${cycleCount}:`);
         console.log(`📊 Trades abertas: ${this.openTrades.size}`);
         if (this.openTrades.size > 0) {
@@ -2743,7 +2917,19 @@ export class AdvancedTradingEngine {
             console.log(`   - ${symbol}: ${trade.side} ${trade.quantity} @ $${trade.entryPrice}`);
           });
         }
-        await this.monitorOpenTrades();
+        await this.monitorOpenTradesEnhanced();
+        
+        // 7. Verificar e fechar trades que excederam timeout
+        await this.checkAndCloseTimedOutTrades();
+        
+        // 8. Registrar equity periodicamente (a cada ciclo)
+        await this.recordEquityPeriodically();
+        
+        // 9. ✅ NOVO: Monitorar preços das trades (histórico para análise)
+        // O monitoramento roda em background, mas garantimos que está ativo
+        if (!tradePriceMonitor.isMonitoringActive()) {
+          await tradePriceMonitor.startMonitoring();
+        }
         
         // 6. Aguardar antes da próxima iteração
         console.log(`\n⏳ CICLO ${cycleCount} CONCLUÍDO - Aguardando 30 segundos para próximo ciclo...`);
@@ -2788,6 +2974,130 @@ export class AdvancedTradingEngine {
   }
 
   /**
+   * ✅ NOVO: Monitora trades abertas (versão melhorada - usa banco como fonte de verdade)
+   */
+  private async monitorOpenTradesEnhanced(): Promise<void> {
+    try {
+      // 1. Buscar trades do banco (fonte de verdade)
+      const { supabase } = await import('./supabase-db');
+      if (!supabase) {
+        console.warn('⚠️ Supabase não disponível para monitoramento');
+        return;
+      }
+      
+      const { data: dbTrades, error } = await supabase
+        .from('real_trades')
+        .select('*')
+        .eq('status', 'open')
+        .order('opened_at', { ascending: false });
+      
+      if (error) {
+        console.error('❌ Erro ao buscar trades do banco:', error);
+        return;
+      }
+      
+      if (!dbTrades || dbTrades.length === 0) {
+        console.log('📊 Nenhuma trade aberta no banco de dados');
+        return;
+      }
+      
+      console.log(`🔍 Monitorando ${dbTrades.length} trades abertas do banco...`);
+      
+      // 2. Para cada trade do banco, verificar na Binance
+      const binanceClient = getBinanceClient();
+      const positions = await binanceClient.getFuturesPositions();
+      
+      for (const trade of dbTrades) {
+        try {
+          if (!trade.trade_id || !trade.symbol || !trade.entry_price || !trade.quantity) {
+            continue; // Pular trades inválidas
+          }
+          
+          const binancePos = positions.find((p: any) => 
+            p.symbol === trade.symbol && 
+            Math.abs(parseFloat(p.positionAmt || '0')) > 0
+          );
+          
+          if (!binancePos) {
+            // Posição foi fechada na Binance mas está open no banco
+            console.log(`⚠️ ${trade.symbol}: Posição fechada na Binance, sincronizando banco...`);
+            await this.closeTradeFromDatabase(trade.trade_id, 'position_closed_externally');
+            continue;
+          }
+          
+          // Atualizar P&L e preço atual
+          const currentPrice = parseFloat(binancePos.markPrice || binancePos.entryPrice || trade.entry_price);
+          const pnl = parseFloat(binancePos.unRealizedProfit || '0');
+          const isolatedMargin = parseFloat(binancePos.isolatedMargin || '0');
+          
+          let pnlPercent = 0;
+          if (isolatedMargin > 0) {
+            pnlPercent = (pnl / isolatedMargin) * 100;
+          } else {
+            // Fallback: calcular baseado em preço
+            const priceChange = ((currentPrice - trade.entry_price) / trade.entry_price) * 100;
+            pnlPercent = trade.side === 'BUY' ? priceChange : -priceChange;
+          }
+          
+          // Atualizar no banco
+          await supabase
+            .from('real_trades')
+            .update({
+              current_price: currentPrice,
+              pnl: pnl,
+              pnl_percent: pnlPercent,
+              updated_at: new Date().toISOString()
+            })
+            .eq('trade_id', trade.trade_id);
+          
+          console.log(`📊 ${trade.symbol}: P&L $${pnl.toFixed(2)} (${pnlPercent.toFixed(2)}%)`);
+          
+          // ✅ AJUSTE: Stop Loss em -15% (mais conservador) e Take Profit em 25% (realista)
+          if (pnlPercent <= -15.0) {
+            console.log(`🚨 STOP LOSS ATIVADO para ${trade.symbol}! P&L: ${pnlPercent.toFixed(2)}%`);
+            await this.closeTradeFromDatabase(trade.trade_id, 'stop_loss');
+          } else if (pnlPercent >= 25.0) {
+            console.log(`🎯 TAKE PROFIT ATIVADO para ${trade.symbol}! P&L: ${pnlPercent.toFixed(2)}%`);
+            await this.closeTradeFromDatabase(trade.trade_id, 'take_profit');
+          }
+          
+          // Adicionar ao Map interno se não estiver lá
+          if (!this.openTrades.has(trade.trade_id)) {
+            this.openTrades.set(trade.trade_id, {
+              tradeId: trade.trade_id,
+              symbol: trade.symbol,
+              side: trade.side as 'BUY' | 'SELL',
+              entryPrice: trade.entry_price,
+              currentPrice: currentPrice,
+              quantity: trade.quantity,
+              pnl: pnl,
+              pnlPercent: pnlPercent,
+              stopLoss: trade.stop_loss,
+              takeProfit: trade.take_profit,
+              openedAt: new Date(trade.opened_at).getTime(),
+              positionSize: trade.position_size || 2.0,
+              binanceOrderId: trade.binance_order_id
+            });
+          } else {
+            // Atualizar dados no Map
+            const mapTrade = this.openTrades.get(trade.trade_id);
+            if (mapTrade) {
+              mapTrade.currentPrice = currentPrice;
+              mapTrade.pnl = pnl;
+              mapTrade.pnlPercent = pnlPercent;
+            }
+          }
+          
+        } catch (error) {
+          console.error(`❌ Erro ao monitorar trade ${trade.trade_id}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erro no monitoramento melhorado:', error);
+    }
+  }
+  
+  /**
    * ✅ NOVO: Verifica status completo do sistema
    */
   public getSystemStatus(): any {
@@ -2813,8 +3123,8 @@ export class AdvancedTradingEngine {
       })),
       
       // Configurações
-      maxActiveTrades: this.configService.getConfig().riskManagement.maxActiveTrades,
-      allowNewTrades: this.configService.getConfig().riskManagement.allowNewTrades,
+      maxActiveTrades: this.configService.getTradeLimits().maxActiveTrades,
+      allowNewTrades: this.configService.getTradeLimits().allowNewTrades,
       blacklistedSymbols: symbolConfig.blacklistedSymbols,
       prioritySymbols: symbolConfig.prioritySymbols,
       
@@ -2845,7 +3155,7 @@ export class AdvancedTradingEngine {
     console.log('\n📈 TRADES:');
     console.log(`   Trades abertas: ${status.openTradesCount}`);
     if (status.openTradesCount > 0) {
-      status.openTrades.forEach(trade => {
+      status.openTrades.forEach((trade: any) => {
         console.log(`     - ${trade.symbol}: ${trade.side} ${trade.quantity} @ $${trade.entryPrice} (P&L: $${trade.pnl.toFixed(2)})`);
       });
     } else {
@@ -3084,6 +3394,250 @@ export class AdvancedTradingEngine {
    */
   public isTradingRunning(): boolean {
     return this.isRunning;
+  }
+  
+  /**
+   * ✅ NOVO: Sincroniza trades do banco com posições da Binance
+   */
+  private async syncTradesWithBinance(): Promise<void> {
+    try {
+      const { supabase } = await import('./supabase-db');
+      if (!supabase) {
+        console.warn('⚠️ Supabase não disponível para sincronização');
+        return;
+      }
+      
+      const binanceClient = getBinanceClient();
+      const positions = await binanceClient.getFuturesPositions();
+      const openPositions = positions.filter((p: any) => Math.abs(parseFloat(p.positionAmt || '0')) > 0);
+      
+      // Buscar trades abertas do banco
+      const { data: dbTrades, error } = await supabase
+        .from('real_trades')
+        .select('*')
+        .eq('status', 'open');
+      
+      if (error) {
+        console.error('❌ Erro ao buscar trades do banco para sincronização:', error);
+        return;
+      }
+      
+      if (!dbTrades || dbTrades.length === 0) {
+        return;
+      }
+      
+      console.log(`🔄 Sincronizando ${dbTrades.length} trades do banco com ${openPositions.length} posições da Binance...`);
+      
+      // Verificar cada trade do banco
+      for (const dbTrade of dbTrades) {
+        try {
+          if (!dbTrade.trade_id || !dbTrade.symbol) {
+            continue;
+          }
+          
+          const binancePos = openPositions.find((p: any) => p.symbol === dbTrade.symbol);
+          
+          if (!binancePos) {
+            // Posição foi fechada na Binance mas está open no banco
+            console.log(`⚠️ Sincronização: ${dbTrade.symbol} foi fechado na Binance, atualizando banco...`);
+            await this.closeTradeFromDatabase(dbTrade.trade_id, 'closed_on_binance');
+          } else {
+            // ✅ CRÍTICO: Obter preço ATUAL do mercado (não apenas da posição)
+            try {
+              const priceData = await binanceClient.getPrice(dbTrade.symbol);
+              const currentPrice = parseFloat(priceData.price) || parseFloat(binancePos.markPrice || binancePos.entryPrice || dbTrade.entry_price);
+              
+              const pnl = parseFloat(binancePos.unRealizedProfit || '0');
+              const isolatedMargin = parseFloat(binancePos.isolatedMargin || '0');
+              
+              let pnlPercent = 0;
+              let finalPnL = pnl;
+              
+              if (isolatedMargin > 0) {
+                // Usar P&L real da Binance
+                pnlPercent = (pnl / isolatedMargin) * 100;
+              } else {
+                // Fallback: calcular baseado em mudança de preço
+                const priceChange = ((currentPrice - dbTrade.entry_price) / dbTrade.entry_price) * 100;
+                pnlPercent = dbTrade.side === 'BUY' ? priceChange : -priceChange;
+                
+                // Estimar P&L baseado em preço
+                finalPnL = dbTrade.side === 'BUY' 
+                  ? (currentPrice - dbTrade.entry_price) * dbTrade.quantity
+                  : (dbTrade.entry_price - currentPrice) * dbTrade.quantity;
+              }
+              
+              // Atualizar no banco com preço e P&L atualizados
+              await supabase
+                .from('real_trades')
+                .update({
+                  current_price: currentPrice,
+                  pnl: finalPnL,
+                  pnl_percent: pnlPercent,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('trade_id', dbTrade.trade_id);
+            } catch (priceError) {
+              console.warn(`⚠️ Erro ao obter preço de ${dbTrade.symbol}:`, priceError);
+            }
+          }
+        } catch (error) {
+          console.error(`❌ Erro ao sincronizar trade ${dbTrade.trade_id}:`, error);
+        }
+      }
+      
+      console.log('✅ Sincronização concluída');
+    } catch (error) {
+      console.error('❌ Erro na sincronização com Binance:', error);
+    }
+  }
+
+  /**
+   * ✅ CRÍTICO: Limpar trades duplicadas e órfãs
+   */
+  private async cleanupDuplicateTrades(): Promise<void> {
+    try {
+      const { supabase } = await import('./supabase-db');
+      if (!supabase) {
+        return;
+      }
+      
+      // Buscar todas as trades abertas
+      const { data: openTrades } = await supabase
+        .from('real_trades')
+        .select('*')
+        .eq('status', 'open')
+        .order('opened_at', { ascending: true });
+      
+      if (!openTrades || openTrades.length === 0) {
+        return;
+      }
+      
+      // Agrupar por símbolo e lado
+      const tradesBySymbolSide: { [key: string]: any[] } = {};
+      openTrades.forEach(t => {
+        const key = `${t.symbol}_${t.side}`;
+        if (!tradesBySymbolSide[key]) {
+          tradesBySymbolSide[key] = [];
+        }
+        tradesBySymbolSide[key].push(t);
+      });
+      
+      // Verificar duplicatas
+      let cleanedCount = 0;
+      for (const [key, trades] of Object.entries(tradesBySymbolSide)) {
+        if (trades.length > 1) {
+          console.log(`⚠️ Encontradas ${trades.length} trades duplicadas para ${key}`);
+          
+          // Ordenar por data de abertura (mais antigas primeiro)
+          trades.sort((a, b) => new Date(a.opened_at).getTime() - new Date(b.opened_at).getTime());
+          
+          // Manter apenas a primeira, fechar as outras como duplicadas
+          const toKeep = trades[0];
+          const toClose = trades.slice(1);
+          
+          for (const duplicate of toClose) {
+            console.log(`   🔒 Fechando trade duplicada: ${duplicate.trade_id}`);
+            
+            // Calcular P&L aproximado antes de fechar
+            const currentPrice = duplicate.current_price || duplicate.entry_price;
+            const pnl = duplicate.side === 'BUY'
+              ? (currentPrice - duplicate.entry_price) * duplicate.quantity
+              : (duplicate.entry_price - currentPrice) * duplicate.quantity;
+            
+            await supabase
+              .from('real_trades')
+              .update({
+                status: 'closed',
+                closed_at: new Date().toISOString(),
+                current_price: currentPrice,
+                pnl: pnl,
+                closed_reason: 'duplicate_trade'
+              })
+              .eq('trade_id', duplicate.trade_id);
+            
+            cleanedCount++;
+          }
+        }
+      }
+      
+      if (cleanedCount > 0) {
+        console.log(`✅ ${cleanedCount} trade(s) duplicada(s) limpa(s)`);
+      }
+    } catch (error) {
+      console.error('❌ Erro ao limpar trades duplicadas:', error);
+    }
+  }
+
+  /**
+   * ✅ NOVO: Registra equity periodicamente para análise
+   */
+  private async recordEquityPeriodically(): Promise<void> {
+    try {
+      const binanceClient = getBinanceClient();
+      const futuresAccount = await binanceClient.getFuturesAccountInfo();
+      const equity = parseFloat(futuresAccount.totalWalletBalance || '0');
+      
+      if (equity <= 0) {
+        console.warn('⚠️ Equity inválido para registro periódico');
+        return;
+      }
+      
+      const { supabase } = await import('./supabase-db');
+      if (!supabase) {
+        console.warn('⚠️ Supabase não disponível para registrar equity');
+        return;
+      }
+      
+      // Verificar último registro para calcular retorno
+      const { data: lastRecord } = await supabase
+        .from('equity_history')
+        .select('equity')
+        .eq('symbol', 'USDT_FUTURES')
+        .order('timestamp', { ascending: false })
+        .limit(1)
+        .single();
+      
+      let returnPercent = 0;
+      if (lastRecord && lastRecord.equity) {
+        const lastEquity = parseFloat(lastRecord.equity.toString());
+        if (lastEquity > 0) {
+          returnPercent = ((equity - lastEquity) / lastEquity) * 100;
+        }
+      }
+      
+      // Buscar primeiro registro para calcular retorno total
+      const { data: firstRecord } = await supabase
+        .from('equity_history')
+        .select('equity')
+        .eq('symbol', 'USDT_FUTURES')
+        .order('timestamp', { ascending: true })
+        .limit(1)
+        .single();
+      
+      let totalReturnPercent = 0;
+      if (firstRecord && firstRecord.equity) {
+        const firstEquity = parseFloat(firstRecord.equity.toString());
+        if (firstEquity > 0) {
+          totalReturnPercent = ((equity - firstEquity) / firstEquity) * 100;
+        }
+      }
+      
+      await supabase.from('equity_history').insert({
+        symbol: 'USDT_FUTURES',
+        equity: equity,
+        timestamp: new Date().toISOString(),
+        return_percent: returnPercent
+      });
+      
+      console.log(`💰 Equity registrado: $${equity.toFixed(2)} (${returnPercent > 0 ? '+' : ''}${returnPercent.toFixed(2)}% desde último registro)`);
+      
+      if (totalReturnPercent < -10) {
+        console.warn(`⚠️ ATENÇÃO: Equity em declínio de ${totalReturnPercent.toFixed(2)}% desde o início`);
+      }
+    } catch (error) {
+      console.error('❌ Erro ao registrar equity periodicamente:', error);
+    }
   }
 
   /**

@@ -17,7 +17,7 @@ interface AlertRule {
   name: string;
   type: string;
   condition: (data: any) => boolean;
-  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | ((data: any) => 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL');
   cooldown: number; // em minutos
   lastTriggered?: Date;
 }
@@ -60,8 +60,8 @@ export class IntelligentAlertSystem extends EventEmitter {
       id: 'drawdown_alert',
       name: 'Drawdown Alert',
       type: 'DRAWDOWN',
-      condition: (data) => data.drawdown > this.thresholds.maxDrawdown,
-      severity: data => data.drawdown > 25 ? 'CRITICAL' : data.drawdown > 20 ? 'HIGH' : 'MEDIUM',
+      condition: (data: any) => data.drawdown > this.thresholds.maxDrawdown,
+      severity: (data: any) => data.drawdown > 25 ? 'CRITICAL' : data.drawdown > 20 ? 'HIGH' : 'MEDIUM',
       cooldown: 30 // 30 minutos
     });
 
@@ -70,8 +70,8 @@ export class IntelligentAlertSystem extends EventEmitter {
       id: 'losing_streak_alert',
       name: 'Losing Streak Alert',
       type: 'LOSING_STREAK',
-      condition: (data) => data.consecutiveLosses >= this.thresholds.maxConsecutiveLosses,
-      severity: data => data.consecutiveLosses >= 7 ? 'CRITICAL' : 'HIGH',
+      condition: (data: any) => data.consecutiveLosses >= this.thresholds.maxConsecutiveLosses,
+      severity: (data: any) => data.consecutiveLosses >= 7 ? 'CRITICAL' : 'HIGH',
       cooldown: 15 // 15 minutos
     });
 
@@ -80,8 +80,8 @@ export class IntelligentAlertSystem extends EventEmitter {
       id: 'low_performance_alert',
       name: 'Low Performance Alert',
       type: 'PERFORMANCE',
-      condition: (data) => data.winRate < this.thresholds.minWinRate,
-      severity: data => data.winRate < 25 ? 'HIGH' : 'MEDIUM',
+      condition: (data: any) => data.winRate < this.thresholds.minWinRate,
+      severity: (data: any) => data.winRate < 25 ? 'HIGH' : 'MEDIUM',
       cooldown: 60 // 1 hora
     });
 
@@ -90,8 +90,8 @@ export class IntelligentAlertSystem extends EventEmitter {
       id: 'daily_loss_alert',
       name: 'Daily Loss Alert',
       type: 'RISK',
-      condition: (data) => data.dailyLoss > this.thresholds.maxDailyLoss,
-      severity: data => data.dailyLoss > 10 ? 'CRITICAL' : 'HIGH',
+      condition: (data: any) => data.dailyLoss > this.thresholds.maxDailyLoss,
+      severity: (data: any) => data.dailyLoss > 10 ? 'CRITICAL' : 'HIGH',
       cooldown: 5 // 5 minutos
     });
 
@@ -100,8 +100,8 @@ export class IntelligentAlertSystem extends EventEmitter {
       id: 'low_sharpe_alert',
       name: 'Low Sharpe Ratio Alert',
       type: 'PERFORMANCE',
-      condition: (data) => data.sharpeRatio < this.thresholds.minSharpeRatio,
-      severity: data => data.sharpeRatio < 0.5 ? 'HIGH' : 'MEDIUM',
+      condition: (data: any) => data.sharpeRatio < this.thresholds.minSharpeRatio,
+      severity: (data: any) => data.sharpeRatio < 0.5 ? 'HIGH' : 'MEDIUM',
       cooldown: 120 // 2 horas
     });
 
@@ -110,8 +110,8 @@ export class IntelligentAlertSystem extends EventEmitter {
       id: 'excessive_position_alert',
       name: 'Excessive Position Size Alert',
       type: 'RISK',
-      condition: (data) => data.positionSizePercent > this.thresholds.maxPositionSize,
-      severity: data => data.positionSizePercent > 30 ? 'CRITICAL' : 'HIGH',
+      condition: (data: any) => data.positionSizePercent > this.thresholds.maxPositionSize,
+      severity: (data: any) => data.positionSizePercent > 30 ? 'CRITICAL' : 'HIGH',
       cooldown: 10 // 10 minutos
     });
 
@@ -120,7 +120,7 @@ export class IntelligentAlertSystem extends EventEmitter {
       id: 'api_failure_alert',
       name: 'API Failure Alert',
       type: 'SYSTEM',
-      condition: (data) => data.apiFailures > 3,
+      condition: (data: any) => data.apiFailures > 3,
       severity: 'MEDIUM',
       cooldown: 5 // 5 minutos
     });

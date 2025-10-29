@@ -233,7 +233,7 @@ export class ActiveMonitoringService extends EventEmitter {
 
       if (error || !equityHistory) return;
 
-      const equityValues = equityHistory.map(e => e.equity);
+      const equityValues = equityHistory.map((e: any) => e.equity);
       const maxEquity = Math.max(...equityValues);
       const currentEquityValue = currentEquity.equity;
       

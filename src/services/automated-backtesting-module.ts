@@ -134,7 +134,7 @@ export class AutomatedBacktestingModule {
       this.supabase = createClient(supabaseUrl, supabaseKey);
       logger.info('✅ AutomatedBacktestingModule: Supabase initialized', 'PERFORMANCE');
     } catch (error) {
-      logger.error('❌ AutomatedBacktestingModule: Failed to initialize Supabase:', 'PERFORMANCE', null, error);
+      logger.error('❌ AutomatedBacktestingModule: Failed to initialize Supabase:', 'PERFORMANCE', null, error as Error);
       this.supabase = null;
     }
   }
@@ -204,7 +204,7 @@ export class AutomatedBacktestingModule {
 
       return result;
     } catch (error) {
-      logger.error(`❌ Erro no backtest para ${config.symbol}:`, 'PERFORMANCE', null, error);
+      logger.error(`❌ Erro no backtest para ${config.symbol}:`, 'PERFORMANCE', null, error as Error);
       throw error;
     }
   }
@@ -644,12 +644,12 @@ export class AutomatedBacktestingModule {
         });
 
       if (error) {
-        logger.error('❌ Erro ao salvar resultado do backtest:', 'PERFORMANCE', null, error);
+        logger.error('❌ Erro ao salvar resultado do backtest:', 'PERFORMANCE', null, error as Error);
       } else {
         logPerformance('✅ Resultado do backtest salvo no banco de dados');
       }
     } catch (error) {
-      logger.error('❌ Erro ao salvar resultado do backtest:', 'PERFORMANCE', null, error);
+      logger.error('❌ Erro ao salvar resultado do backtest:', 'PERFORMANCE', null, error as Error);
     }
   }
 
@@ -685,7 +685,7 @@ export class AutomatedBacktestingModule {
             score
           });
         } catch (error) {
-          logger.warn('⚠️ Erro ao testar combinação de parâmetros:', 'PERFORMANCE', null, error);
+          logger.warn('⚠️ Erro ao testar combinação de parâmetros:', 'PERFORMANCE', error as Error);
         }
       }
 
@@ -715,7 +715,7 @@ export class AutomatedBacktestingModule {
 
       return optimizationResult;
     } catch (error) {
-      logger.error('❌ Erro na otimização de estratégia:', 'PERFORMANCE', null, error);
+      logger.error('❌ Erro na otimização de estratégia:', 'PERFORMANCE', null, error as Error);
       return null;
     }
   }

@@ -49,7 +49,7 @@ export class CacheService {
     // Tentar Redis primeiro
     if (this.redisService?.isRedisConnected()) {
       try {
-        const cached = await this.redisService.getCachedTradingData<T>(key);
+        const cached = await this.redisService.getCachedTradingData(key) as T;
         if (cached !== null) {
           return cached;
         }

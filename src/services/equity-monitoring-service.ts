@@ -121,7 +121,7 @@ export class EquityMonitoringService {
       const { sharpeRatio, volatility } = this.calculateRiskMetrics(returns);
 
       // Construir curva de equity
-      const equityCurve = equityData.map((point, index) => {
+      const equityCurve = equityData.map((point: any, index: number) => {
         const returnValue = point.equity - initialEquity;
         const returnPercent = (returnValue / initialEquity) * 100;
         return {
@@ -181,7 +181,7 @@ export class EquityMonitoringService {
         return null;
       }
 
-      const closedTrades = trades.filter(t => t.status === 'closed');
+      const closedTrades = trades.filter((t: any) => t.status === 'closed');
       const totalTrades = closedTrades.length;
       
       if (totalTrades === 0) {
@@ -203,16 +203,16 @@ export class EquityMonitoringService {
         };
       }
 
-      const winningTrades = closedTrades.filter(t => (t.pnl || 0) > 0);
-      const losingTrades = closedTrades.filter(t => (t.pnl || 0) < 0);
+      const winningTrades = closedTrades.filter((t: any) => (t.pnl || 0) > 0);
+      const losingTrades = closedTrades.filter((t: any) => (t.pnl || 0) < 0);
       
       const winRate = (winningTrades.length / totalTrades) * 100;
       
-      const totalPnL = closedTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
-      const totalPnLPercent = closedTrades.reduce((sum, t) => sum + (t.pnl_percent || 0), 0) / totalTrades;
+      const totalPnL = closedTrades.reduce((sum: number, t: any) => sum + (t.pnl || 0), 0);
+      const totalPnLPercent = closedTrades.reduce((sum: number, t: any) => sum + (t.pnl_percent || 0), 0) / totalTrades;
       
-      const totalWins = winningTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
-      const totalLosses = Math.abs(losingTrades.reduce((sum, t) => sum + (t.pnl || 0), 0));
+      const totalWins = winningTrades.reduce((sum: number, t: any) => sum + (t.pnl || 0), 0);
+      const totalLosses = Math.abs(losingTrades.reduce((sum: number, t: any) => sum + (t.pnl || 0), 0));
       
       const avgWin = winningTrades.length > 0 ? totalWins / winningTrades.length : 0;
       const avgLoss = losingTrades.length > 0 ? totalLosses / losingTrades.length : 0;
@@ -223,14 +223,14 @@ export class EquityMonitoringService {
       const { maxConsecutiveWins, maxConsecutiveLosses } = this.calculateConsecutiveSequences(closedTrades);
       
       // Duração média das trades
-      const avgTradeDuration = closedTrades.reduce((sum, t) => {
+      const avgTradeDuration = closedTrades.reduce((sum: number, t: any) => {
         const opened = new Date(t.opened_at);
         const closed = t.closed_at ? new Date(t.closed_at) : new Date();
         return sum + (closed.getTime() - opened.getTime()) / 1000 / 60; // em minutos
       }, 0) / totalTrades;
       
       // Melhor e pior trade
-      const pnls = closedTrades.map(t => t.pnl || 0);
+      const pnls = closedTrades.map((t: any) => t.pnl || 0);
       const bestTrade = Math.max(...pnls);
       const worstTrade = Math.min(...pnls);
 

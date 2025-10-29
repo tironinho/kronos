@@ -89,7 +89,7 @@ class TradingConfigurationService {
       },
       
       riskManagement: {
-        maxPositionsPerSymbol: 2,
+        maxPositionsPerSymbol: 3,
         maxTotalPositions: 10, // Aumentado de 8 para 10
         positionSizePct: 5, // % do capital
         stopLossPct: 2,

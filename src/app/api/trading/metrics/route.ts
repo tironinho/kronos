@@ -24,33 +24,33 @@ export async function GET() {
     const totalTrades = allTrades.length;
     
     // ✅ CORRIGIR: Calcular P&L total apenas de trades fechadas
-    const totalPnL = closedTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+    const totalPnL = closedTrades.reduce((sum: number, t: any) => sum + (t.pnl || 0), 0);
     
     // ✅ CORRIGIR: P&L % médio apenas de trades fechadas
     const totalPnLPercent = closedTrades.length > 0 
-      ? closedTrades.reduce((sum, t) => sum + (t.pnl_percent || 0), 0) / closedTrades.length 
+      ? closedTrades.reduce((sum: number, t: any) => sum + (t.pnl_percent || 0), 0) / closedTrades.length 
       : 0;
     
     // ✅ CORRIGIR: P&L hoje apenas de trades fechadas hoje
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayPnL = closedTrades
-      .filter(t => {
+      .filter((t: any) => {
         const closedAt = t.closed_at ? new Date(t.closed_at) : null;
         return closedAt && closedAt >= today;
       })
-      .reduce((sum, t) => sum + (t.pnl || 0), 0);
+      .reduce((sum: number, t: any) => sum + (t.pnl || 0), 0);
     
     // ✅ CORRIGIR: Win rate apenas de trades fechadas
-    const winningTrades = closedTrades.filter(t => (t.pnl || 0) > 0).length;
-    const losingTrades = closedTrades.filter(t => (t.pnl || 0) < 0).length;
+    const winningTrades = closedTrades.filter((t: any) => (t.pnl || 0) > 0).length;
+    const losingTrades = closedTrades.filter((t: any) => (t.pnl || 0) < 0).length;
     const winRate = closedTrades.length > 0 
       ? (winningTrades / closedTrades.length) * 100 
       : 0;
     
     // ✅ CORRIGIR: Duração média apenas de trades fechadas
     const avgDuration = closedTrades.length > 0
-      ? closedTrades.reduce((sum, t) => {
+      ? closedTrades.reduce((sum: number, t: any) => {
           const opened = new Date(t.opened_at);
           const closed = t.closed_at ? new Date(t.closed_at) : new Date();
           return sum + (closed.getTime() - opened.getTime()) / 1000 / 60; // em minutos
@@ -59,18 +59,18 @@ export async function GET() {
 
     // ✅ NOVO: Calcular Profit Factor
     const totalWins = closedTrades
-      .filter(t => (t.pnl || 0) > 0)
-      .reduce((sum, t) => sum + (t.pnl || 0), 0);
+      .filter((t: any) => (t.pnl || 0) > 0)
+      .reduce((sum: number, t: any) => sum + (t.pnl || 0), 0);
     const totalLosses = Math.abs(closedTrades
-      .filter(t => (t.pnl || 0) < 0)
-      .reduce((sum, t) => sum + (t.pnl || 0), 0));
+      .filter((t: any) => (t.pnl || 0) < 0)
+      .reduce((sum: number, t: any) => sum + (t.pnl || 0), 0));
     const profitFactor = totalLosses > 0 ? totalWins / totalLosses : (totalWins > 0 ? 999 : 0);
 
     // ✅ NOVO: Calcular Sharpe Ratio aproximado
-    const returns = closedTrades.map(t => t.pnl_percent || 0);
-    const avgReturn = returns.length > 0 ? returns.reduce((sum, r) => sum + r, 0) / returns.length : 0;
+    const returns = closedTrades.map((t: any) => t.pnl_percent || 0);
+    const avgReturn = returns.length > 0 ? returns.reduce((sum: number, r: number) => sum + r, 0) / returns.length : 0;
     const variance = returns.length > 0 
-      ? returns.reduce((sum, r) => sum + Math.pow(r - avgReturn, 2), 0) / returns.length 
+      ? returns.reduce((sum: number, r: number) => sum + Math.pow(r - avgReturn, 2), 0) / returns.length 
       : 0;
     const sharpeRatio = variance > 0 ? avgReturn / Math.sqrt(variance) : 0;
 

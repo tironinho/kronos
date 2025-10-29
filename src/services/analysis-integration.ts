@@ -394,7 +394,7 @@ export class AnalysisIntegrationEngine {
     for (const [analysisType, analysis] of Object.entries(analyses)) {
       const weight = weights[analysisType as keyof typeof weights] || 0;
       if (weight > 0) {
-        weightedScore += analysis.score * weight;
+        weightedScore += (analysis as any).score * weight;
         totalWeight += weight;
       }
     }
@@ -408,7 +408,7 @@ export class AnalysisIntegrationEngine {
     for (const [analysisType, analysis] of Object.entries(analyses)) {
       const weight = weights[analysisType as keyof typeof weights] || 0;
       if (weight > 0) {
-        weightedConfidence += analysis.confidence * weight;
+        weightedConfidence += (analysis as any).confidence * weight;
         confidenceWeight += weight;
       }
     }
@@ -475,7 +475,7 @@ export class AnalysisIntegrationEngine {
     // Identify dominant factors
     const dominantFactors: string[] = [];
     const analysisEntries = Object.entries(analyses);
-    analysisEntries.sort((a, b) => Math.abs(b[1].score) - Math.abs(a[1].score));
+    analysisEntries.sort((a, b) => Math.abs((b[1] as any).score) - Math.abs((a[1] as any).score));
     dominantFactors.push(analysisEntries[0][0], analysisEntries[1][0]);
     
     // Identify risk factors

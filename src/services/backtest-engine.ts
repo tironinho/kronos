@@ -140,19 +140,19 @@ export class BacktestEngine {
 
       // Process each signal
       for (const signal of sortedSignals) {
-        const currentPrice = await this.getPriceAtTime(signal.symbol, signal.timestamp);
+        const currentPrice: number | null = await this.getPriceAtTime(signal.symbol, signal.timestamp);
         if (!currentPrice) continue;
 
         // Check if we can open a new position
-        if (positions.size < this.config.max_positions && signal.signalType !== 'HOLD') {
+        if (positions.size < this.config.max_positions && signal.signal_type !== 'HOLD') {
           const positionSize = currentCapital * this.config.position_size_percent;
-          const quantity = positionSize / currentPrice;
+          const quantity = positionSize / currentPrice as number;
 
           const trade: BacktestTrade = {
             id: generateUniqueId(),
             symbol: signal.symbol,
-            side: signal.signalType,
-            entry_price: currentPrice,
+            side: signal.signal_type as 'BUY' | 'SELL',
+            entry_price: currentPrice as number,
             exit_price: 0,
             quantity,
             entry_time: signal.timestamp,
@@ -173,15 +173,15 @@ export class BacktestEngine {
 
           info('Position opened', { 
             symbol: signal.symbol, 
-            side: signal.signalType, 
-            price: currentPrice,
+            side: signal.signal_type as 'BUY' | 'SELL', 
+            price: currentPrice as number,
             quantity: quantity.toFixed(4)
           });
         }
 
         // Check existing positions for exit conditions
         for (const [symbol, position] of positions) {
-          const currentPrice = await this.getPriceAtTime(symbol, signal.timestamp);
+          const currentPrice: number | null = await this.getPriceAtTime(symbol, signal.timestamp);
           if (!currentPrice) continue;
 
           let shouldExit = false;
@@ -192,8 +192,8 @@ export class BacktestEngine {
             ? position.entry_price * (1 - this.config.stop_loss_percent)
             : position.entry_price * (1 + this.config.stop_loss_percent);
 
-          if ((position.side === 'BUY' && currentPrice <= stopLossPrice) ||
-              (position.side === 'SELL' && currentPrice >= stopLossPrice)) {
+          if ((position.side === 'BUY' && currentPrice as number <= stopLossPrice) ||
+              (position.side === 'SELL' && currentPrice as number >= stopLossPrice)) {
             shouldExit = true;
             exitReason = 'stop_loss';
             position.stop_loss_hit = true;
@@ -204,8 +204,8 @@ export class BacktestEngine {
             ? position.entry_price * (1 + this.config.take_profit_percent)
             : position.entry_price * (1 - this.config.take_profit_percent);
 
-          if ((position.side === 'BUY' && currentPrice >= takeProfitPrice) ||
-              (position.side === 'SELL' && currentPrice <= takeProfitPrice)) {
+          if ((position.side === 'BUY' && currentPrice as number >= takeProfitPrice) ||
+              (position.side === 'SELL' && currentPrice as number <= takeProfitPrice)) {
             shouldExit = true;
             exitReason = 'take_profit';
             position.take_profit_hit = true;
@@ -220,7 +220,7 @@ export class BacktestEngine {
 
           if (shouldExit) {
             // Close position
-            position.exit_price = currentPrice;
+            position.exit_price = currentPrice as number;
             position.exit_time = signal.timestamp;
             position.duration_minutes = (position.exit_time - position.entry_time) / (1000 * 60);
 
@@ -254,13 +254,15 @@ export class BacktestEngine {
         }
 
         // Update equity curve
-        const totalEquity = currentCapital + Array.from(positions.values()).reduce((sum, pos) => {
-          const currentPrice = this.getPriceAtTime(pos.symbol, signal.timestamp) || pos.entry_price;
+        let positionsValue = 0;
+        for (const pos of Array.from(positions.values())) {
+          const currentPrice = (await this.getPriceAtTime(pos.symbol, signal.timestamp)) || (pos.entry_price as number);
           const unrealizedPnL = pos.side === 'BUY' 
-            ? (currentPrice - pos.entry_price) * pos.quantity
-            : (pos.entry_price - currentPrice) * pos.quantity;
-          return sum + (pos.entry_price * pos.quantity) + unrealizedPnL;
-        }, 0);
+            ? (currentPrice - (pos.entry_price as number)) * pos.quantity
+            : ((pos.entry_price as number) - currentPrice) * pos.quantity;
+          positionsValue += ((pos.entry_price as number) * pos.quantity) + unrealizedPnL;
+        }
+        const totalEquity = currentCapital + positionsValue;
 
         equityCurve.push({
           timestamp: signal.timestamp,

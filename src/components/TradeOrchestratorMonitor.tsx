@@ -257,7 +257,7 @@ const TradeOrchestratorMonitor: React.FC = () => {
             <p className="text-sm text-gray-600">Total Processados</p>
           </div>
           <div className="text-center p-4 bg-gray-50 rounded-lg">
-            <p className="text-2xl font-bold text-gray-900">{(performance?.success_rate * 100 || 0).toFixed(1)}%</p>
+            <p className="text-2xl font-bold text-gray-900">{(performance?.success_rate || 0) * 100}%</p>
             <p className="text-sm text-gray-600">Taxa de Sucesso</p>
           </div>
           <div className="text-center p-4 bg-gray-50 rounded-lg">

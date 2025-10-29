@@ -142,7 +142,7 @@ export class EnhancedTechnicalAnalysisModule {
 
       return analysis;
     } catch (error) {
-      logger.error(`❌ Erro na análise técnica aprimorada de ${symbol}:`, 'TECHNICAL', null, error);
+      logger.error(`❌ Erro na análise técnica aprimorada de ${symbol}:`, 'TECHNICAL', null, error as Error);
       return null;
     }
   }
@@ -187,7 +187,7 @@ export class EnhancedTechnicalAnalysisModule {
         avgRelevance
       };
     } catch (error) {
-      logger.error(`❌ Erro ao obter análise de sentimento para ${symbol}:`, 'TECHNICAL', null, error);
+      logger.error(`❌ Erro ao obter análise de sentimento para ${symbol}:`, 'TECHNICAL', null, error as Error);
       return {
         newsSentiment: 0,
         sentimentLabel: 'neutral',
@@ -211,12 +211,12 @@ export class EnhancedTechnicalAnalysisModule {
       let economicHealth = 'moderate';
       
       if (economicData.gdp && economicData.inflation) {
-        const gdpGrowth = economicData.gdp > 0 ? 1 : 0;
-        const inflationControl = economicData.inflation > 0 && economicData.inflation < 5 ? 1 : 0;
+        const gdpGrowth = (economicData.gdp as any).value > 0 ? 1 : 0;
+        const inflationControl = (economicData.inflation as any).value > 0 && (economicData.inflation as any).value < 5 ? 1 : 0;
         
         if (gdpGrowth && inflationControl) economicHealth = 'excellent';
         else if (gdpGrowth || inflationControl) economicHealth = 'good';
-        else if (economicData.inflation > 10) economicHealth = 'critical';
+        else if ((economicData.inflation as any).value > 10) economicHealth = 'critical';
         else economicHealth = 'poor';
       }
 
@@ -226,7 +226,7 @@ export class EnhancedTechnicalAnalysisModule {
         economicHealth
       };
     } catch (error) {
-      logger.error('❌ Erro ao obter contexto econômico:', 'TECHNICAL', null, error);
+      logger.error('❌ Erro ao obter contexto econômico:', 'TECHNICAL', null, error as Error);
       return {
         economicHealth: 'moderate'
       };
@@ -481,7 +481,7 @@ export class EnhancedTechnicalAnalysisModule {
 
       return overview;
     } catch (error) {
-      logger.error('❌ Erro ao obter visão geral do mercado:', 'TECHNICAL', null, error);
+      logger.error('❌ Erro ao obter visão geral do mercado:', 'TECHNICAL', null, error as Error);
       return null;
     }
   }
