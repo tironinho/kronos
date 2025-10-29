@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { tradeSimulatorEngine } from '@/services/trade-simulator-engine';
 import { getBinanceClient } from '@/services/binance-api';
+import { supabase } from '@/services/supabase-db';
 
 export async function GET() {
   try {
@@ -77,16 +78,17 @@ export async function GET() {
     // 2. Buscar trades REAIS da tabela real_trades
     if (activeTrades.length === 0) {
       try {
-        const { supabase } = await import('../../../services/supabase-db');
         if (supabase) {
-          const { data: dbTrades } = await supabase
+          const { data: dbTrades, error: dbError } = await supabase
             .from('real_trades')
             .select('*')
             .eq('status', 'open')
             .order('opened_at', { ascending: false })
             .limit(50);
           
-          if (dbTrades && dbTrades.length > 0) {
+          if (dbError) {
+            console.warn('⚠️ Erro ao buscar trades reais:', dbError);
+          } else if (dbTrades && dbTrades.length > 0) {
             // ✅ ChatGPT: FILTRAR trades órfãs com dados zerados
             const validTrades = dbTrades.filter((t: any) => {
               const hasValidPrice = t.entry_price > 0;
